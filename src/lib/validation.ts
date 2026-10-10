@@ -50,3 +50,17 @@ export function caretAfterDigits(formatted: string, n: number) {
   }
   return formatted.length;
 }
+
+// ---- Text length limits ----
+
+/** Maximum characters for the free-text property fields. */
+export const TEXT_LIMITS = { title: 120, description: 2000 } as const;
+
+export type CounterTone = "normal" | "near" | "full";
+
+/** Colour state of a character counter: "near" from 90% of the limit, "full" at the limit. */
+export function counterTone(length: number, max: number): CounterTone {
+  if (length >= max) return "full";
+  if (length >= max * 0.9) return "near";
+  return "normal";
+}

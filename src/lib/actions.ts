@@ -11,7 +11,7 @@ import { uploadPhotos } from "./photos";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
 import { COMPANY_DEFAULT_NAME } from "./sellers";
 import * as store from "./store";
-import { checkWholeNumber, groupDigits, PROPERTY_LIMITS, validEmail, validPhone } from "./validation";
+import { checkWholeNumber, groupDigits, PROPERTY_LIMITS, TEXT_LIMITS, validEmail, validPhone } from "./validation";
 import {
   FEATURES,
   LEAD_STATUSES,
@@ -44,7 +44,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
   const t = dict.msg;
   const purpose = (admin ? (text(fd, "purpose") as Purpose) : "sale") satisfies Purpose;
   const rentPeriod = text(fd, "rentPeriod") as RentPeriod;
-  const title = text(fd, "title", 120);
+  const title = text(fd, "title", TEXT_LIMITS.title);
   const listingType = (admin ? text(fd, "listingType") : "resale") as ListingType;
   const type = text(fd, "type") as PropertyType;
   const location = text(fd, "location");
@@ -58,6 +58,12 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
   const place = (await store.getLocations()).find((l) => l.id === location);
   const validLocation = Boolean(place && (admin || !place.archived));
   if (!title || (!sellerName && !company)) return { error: t.propertyMissing };
+  // Over-long text is rejected, not silently cut off (the form's counters stop it at the limit).
+  for (const key of ["title", "description"] as const) {
+    if (String(fd.get(key) ?? "").trim().length > TEXT_LIMITS[key]) {
+      return { error: fmt(t.textTooLong, { field: dict.fields[key], max: groupDigits(String(TEXT_LIMITS[key])) }) };
+    }
+  }
   if (
     !LISTING_TYPES.includes(listingType) ||
     !PROPERTY_TYPES.includes(type) ||
@@ -96,7 +102,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       location,
       compound: text(fd, "compound", 80),
       ...numbers,
-      description: text(fd, "description", 2000),
+      description: text(fd, "description", TEXT_LIMITS.description),
       features: fd.getAll("features").map(String).filter((f) => (FEATURES as readonly string[]).includes(f)),
       seller: {
         type: sellerType,

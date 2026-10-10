@@ -30,6 +30,16 @@ every form in the site, not just this one), and how dropdowns look across the si
 - The server checks the same ranges, so a request that skips the form gets
   "Price (EGP) must be a whole number from 1 to 1,000,000,000."
 
+### Title and description length
+
+- The property title is limited to 120 characters and the description to 2,000 (`TEXT_LIMITS`).
+  The browser stops typing at the limit and trims a paste to fit.
+- A live counter under each field shows `45 / 120`. It turns amber from 90% of the limit and red at
+  the limit. It always reads left to right, in Arabic too, and screen readers hear "{n} of {max}
+  characters left".
+- The server rejects longer text ("Property title can be at most 120 characters.") instead of
+  cutting it off without telling anyone.
+
 ### Failed submissions keep the form
 
 - Nothing is cleared when a save fails, whether the server rejects the input, the database is down
@@ -71,23 +81,27 @@ No change. `area`, `bedrooms` and `bathrooms` are `integer` and `price` is `bigi
 
 | File | Role |
 | --- | --- |
-| `src/lib/validation.ts` | `PROPERTY_LIMITS`, `checkWholeNumber`, `digitsOnly` / `toLatinDigits`, `maxDigits`, `groupDigits`, `caretAfterDigits`. Shared by the client field and the server action. |
+| `src/lib/validation.ts` | `PROPERTY_LIMITS`, `TEXT_LIMITS`, `counterTone`, `checkWholeNumber`, `digitsOnly` / `toLatinDigits`, `maxDigits`, `groupDigits`, `caretAfterDigits`. Shared by the client field and the server action. |
 | `src/components/number-field.tsx` | `NumberField`: digits-only controlled input, live error, `setCustomValidity` to block submit, hidden input carrying the raw digits under `name`. |
-| `src/components/property-fields.tsx` | Uses `NumberField` for price, area, bedrooms and bathrooms. |
+| `src/components/limited-text.tsx` | `LimitedText`: input or textarea with `maxLength` and the live counter. |
+| `src/components/property-fields.tsx` | Uses `NumberField` for price, area, bedrooms and bathrooms, and `LimitedText` for title and description. |
 | `src/components/property-form.tsx`, `src/components/edit-property-form.tsx` | Submit from `onSubmit` + `startTransition` instead of `<form action>`, because React resets a form after its action runs, even when it fails. |
 | `src/lib/safe-action.ts` | `succeeded`: runs a request and returns false if it throws, re-throwing Next.js redirects via `unstable_rethrow`. `withFailureMessage`: wraps a server action for `useActionState` so a thrown request becomes `{ ok: false, message }`. |
 | `src/components/action-form.tsx` | `ActionForm`: `<form>` for server actions that return nothing. Submits from `onSubmit` with the clicked button (`submitter`), disables its controls while pending, optional `confirm`, inline error on failure. |
 | `src/components/lead-form.tsx`, `login-form.tsx`, `location-admin.tsx` | `withFailureMessage` + `onSubmit` submission, as in the property forms. |
 | `src/components/admin-ui.tsx`, `language-switch.tsx`, `src/app/admin/(panel)/layout.tsx`, `src/app/admin/(panel)/properties/[id]/page.tsx` | Use `ActionForm`. |
-| `src/lib/actions.ts` | `parseProperty` checks each number against `PROPERTY_LIMITS` and returns `msg.numberRange`. |
+| `src/lib/actions.ts` | `parseProperty` checks each number against `PROPERTY_LIMITS` (`msg.numberRange`) and title/description against `TEXT_LIMITS` (`msg.textTooLong`). |
 | `src/app/globals.css` | `select.field` chevron, flipped under `[dir="rtl"]`. |
-| `src/lib/i18n/{en,ar}.ts` | `fields.errors.*`, `msg.numberRange`, `msg.requestFailed`, `msg.actionFailed`. |
+| `src/lib/i18n/{en,ar}.ts` | `fields.errors.*`, `fields.charsLeft`, `msg.numberRange`, `msg.textTooLong`, `msg.requestFailed`, `msg.actionFailed`. |
 
 ## Tests
 
 - `src/lib/validation.test.ts`: ranges (including the price and area caps), non-digit input,
-  required vs optional, Arabic digit conversion, digit stripping, grouping and caret placement.
+  required vs optional, Arabic digit conversion, digit stripping, grouping and caret placement;
+  `counterTone` thresholds.
 - `src/lib/safe-action.test.ts`: `withFailureMessage` passes results through and turns a failed
   request into the message; `succeeded` reports success/failure; both re-throw redirects.
 - `src/lib/actions.test.ts` → "numeric property limits": maximum price and area accepted, values
   over the caps, decimals, exponents, zero and empty values rejected without saving.
+- `src/lib/actions.test.ts` → "text length limits": title and description at the limit accepted,
+  one character over rejected with the right message.

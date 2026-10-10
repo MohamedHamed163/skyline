@@ -197,6 +197,7 @@ const en = {
     whatsapp: "WhatsApp number",
     company: "Broker / company name",
     featured: "Show on the home page",
+    charsLeft: "{n} of {max} characters left",
     errors: {
       required: "This field is required.",
       notNumber: "Enter numbers only.",
@@ -231,6 +232,7 @@ const en = {
   msg: {
     propertyMissing: "Please fill in the property title and seller name.",
     propertyChoices: "Please choose the property type, location and seller type.",
+    textTooLong: "{field} can be at most {max} characters.",
     numberRange: "{field} must be a whole number from {min} to {max}.",
     actionFailed: "Couldn't reach the server. Check your connection and try again.",
     requestFailed: "We couldn't reach the server. Check your connection and try again — your details are still here.",

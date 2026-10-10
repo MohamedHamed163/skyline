@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caretAfterDigits, checkWholeNumber, digitsOnly, groupDigits, maxDigits, PROPERTY_LIMITS, toLatinDigits, validEmail, validPhone } from "./validation";
+import { caretAfterDigits, checkWholeNumber, counterTone, TEXT_LIMITS, digitsOnly, groupDigits, maxDigits, PROPERTY_LIMITS, toLatinDigits, validEmail, validPhone } from "./validation";
 
 describe("checkWholeNumber", () => {
   const limits = { min: 1, max: 5_000 };
@@ -78,5 +78,16 @@ describe("contact fields", () => {
     expect(validPhone("123")).toBe(false);
     expect(validEmail("a@b.co")).toBe(true);
     expect(validEmail("a@b")).toBe(false);
+  });
+});
+
+describe("counterTone", () => {
+  it("is normal below 90%, near from 90% and full at the limit", () => {
+    expect(counterTone(0, TEXT_LIMITS.title)).toBe("normal");
+    expect(counterTone(107, TEXT_LIMITS.title)).toBe("normal");
+    expect(counterTone(108, TEXT_LIMITS.title)).toBe("near");
+    expect(counterTone(119, TEXT_LIMITS.title)).toBe("near");
+    expect(counterTone(120, TEXT_LIMITS.title)).toBe("full");
+    expect(counterTone(1800, TEXT_LIMITS.description)).toBe("near");
   });
 });

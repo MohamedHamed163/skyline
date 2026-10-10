@@ -212,6 +212,26 @@ describe("numeric property limits", () => {
   });
 });
 
+describe("text length limits", () => {
+  const property = (text: Record<string, string>) =>
+    form({ title: "Nice flat", type: "apartment", location: "new-cairo", price: "1000000", area: "100", bedrooms: "2", bathrooms: "1", sellerType: "owner", sellerName: "Owner", sellerPhone: "+20 100 000 0000", photos: JPEG, ...text });
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("accepts a title and description exactly at the limit", async () => {
+    expect((await submitProperty(null, property({ title: "t".repeat(120), description: "d".repeat(2000) })))?.ok).toBe(true);
+  });
+
+  it("rejects an over-long title instead of cutting it off", async () => {
+    expect(await submitProperty(null, property({ title: "t".repeat(121) }))).toEqual({ ok: false, message: "Property title can be at most 120 characters." });
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("rejects an over-long description", async () => {
+    expect(await submitProperty(null, property({ description: "d".repeat(2001) }))).toEqual({ ok: false, message: "Description can be at most 2,000 characters." });
+  });
+});
+
 describe("listing type and home page (admin-only)", () => {
   const fields = {
     title: "Nice flat",

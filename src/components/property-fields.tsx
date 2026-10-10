@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { fmt, useDict } from "@/lib/i18n/client";
+import { LimitedText } from "@/components/limited-text";
 import { NumberField } from "@/components/number-field";
 import { locationLabel } from "@/lib/locations";
-import { PROPERTY_LIMITS } from "@/lib/validation";
+import { PROPERTY_LIMITS, TEXT_LIMITS } from "@/lib/validation";
 import {
   FEATURES,
   LISTING_TYPES,
@@ -92,7 +93,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
           <label className="label" htmlFor="title">
             {f.title}
           </label>
-          <input id="title" name="title" required maxLength={120} defaultValue={d?.title} placeholder={f.titlePlaceholder} className="field" />
+          <LimitedText id="title" name="title" max={TEXT_LIMITS.title} required defaultValue={d?.title} placeholder={f.titlePlaceholder} />
         </div>
         <div>
           <label className="label" htmlFor="type">
@@ -155,7 +156,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
           <label className="label" htmlFor="description">
             {f.description}
           </label>
-          <textarea id="description" name="description" rows={4} maxLength={2000} defaultValue={d?.description} className="field" />
+          <LimitedText id="description" name="description" max={TEXT_LIMITS.description} multiline rows={4} defaultValue={d?.description} />
         </div>
         <div className="sm:col-span-2">
           <p className="label">
