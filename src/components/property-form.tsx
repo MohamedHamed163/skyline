@@ -5,6 +5,7 @@ import { PropertyFields } from "@/components/property-fields";
 import { createPropertyAdmin, submitProperty } from "@/lib/actions";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { toJpegDataUrl } from "@/lib/jpeg";
+import { checkPhotos, MAX_PHOTO_MB } from "@/lib/photo-limits";
 import { withFailureMessage } from "@/lib/safe-action";
 import type { Location, Purpose } from "@/lib/types";
 
@@ -23,9 +24,9 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mod
   async function addPhotos(files: FileList | null) {
     if (!files) return;
     setPhotoError("");
-    const room = MAX_PHOTOS - photos.length;
-    const picked = Array.from(files).slice(0, room);
-    if (files.length > room) setPhotoError(fmt(t.submit.maxPhotos, { max: MAX_PHOTOS }));
+    const { accepted: picked, tooLarge, overCount } = checkPhotos(Array.from(files), MAX_PHOTOS - photos.length);
+    if (tooLarge.length) setPhotoError(fmt(t.submit.tooLarge, { mb: MAX_PHOTO_MB, files: tooLarge.join(", ") }));
+    else if (overCount) setPhotoError(fmt(t.submit.maxPhotos, { max: MAX_PHOTOS }));
     try {
       const urls = await Promise.all(picked.map((f) => toJpegDataUrl(f)));
       setPhotos((prev) => [...prev, ...urls].slice(0, MAX_PHOTOS));
@@ -62,7 +63,7 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mod
 
       <fieldset>
         <legend className="mb-1 text-lg font-bold">{t.submit.images}</legend>
-        <p className="mb-4 text-sm text-cocoa">{fmt(t.submit.imagesHint, { max: MAX_PHOTOS })}</p>
+        <p className="mb-4 text-sm text-cocoa">{fmt(t.submit.imagesHint, { max: MAX_PHOTOS, mb: MAX_PHOTO_MB })}</p>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {photos.map((src, i) => (
             <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-line">

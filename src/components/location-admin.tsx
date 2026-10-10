@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/action-form";
 import { createLocation, setLocationArchived, updateLocation } from "@/lib/actions";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { toJpegDataUrl } from "@/lib/jpeg";
+import { checkPhotos, MAX_PHOTO_MB } from "@/lib/photo-limits";
 import { DEFAULT_LOCATION_COVER, locationLabel } from "@/lib/locations";
 import { withFailureMessage } from "@/lib/safe-action";
 import type { FormState, Location } from "@/lib/types";
@@ -34,6 +35,10 @@ export function LocationForm({ location }: { location?: Location }) {
   async function pick(file?: File) {
     if (!file) return;
     setPhotoError("");
+    if (checkPhotos([file]).tooLarge.length) {
+      setPhotoError(fmt(t.submit.tooLarge, { mb: MAX_PHOTO_MB, files: file.name }));
+      return;
+    }
     try {
       setCover(await toJpegDataUrl(file));
       setRemoveCover(false);
@@ -95,7 +100,7 @@ export function LocationForm({ location }: { location?: Location }) {
           </button>
         )}
       </div>
-      <p className="text-xs text-cocoa sm:col-span-3">{l.cover}: {l.coverHint}</p>
+      <p className="text-xs text-cocoa sm:col-span-3">{l.cover}: {fmt(l.coverHint, { mb: MAX_PHOTO_MB })}</p>
       {photoError && (
         <p className="text-sm text-red-600 sm:col-span-3" role="alert">
           {photoError}

@@ -41,6 +41,7 @@ The file ends with the statements that remove the set again.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
 - [Forms](docs/forms.md): digits-only numeric fields with live range checks, title/description character counters, failed requests that never clear a form or crash the page, and the dropdown chevron.
+- [Photo uploads](docs/photo-uploads.md): every image field accepts photos up to 6 MB, with a friendly message naming any larger file.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.
 
 ## Caching
