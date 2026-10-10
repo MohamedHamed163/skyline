@@ -5,10 +5,9 @@ import { PinIcon } from "@/components/icons";
 import { ListingBadge, Photo, PropertyCard } from "@/components/property-card";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { localName } from "@/lib/locations";
 import { avgPricePerSqm, groupProjects } from "@/lib/search";
 import { getPublishedProperties } from "@/lib/store";
-
-export const dynamic = "force-dynamic";
 
 async function findProject(params: Promise<{ slug: string }>) {
   const [{ slug }, published] = await Promise.all([params, getPublishedProperties()]);
@@ -42,7 +41,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
             <ListingBadge type={project.listingType} label={t.listing[project.listingType]} />
           </div>
           <h1 className="mt-3 text-4xl font-extrabold tracking-tight">{project.compound}</h1>
-          <p className="mt-2 flex items-center gap-1.5 text-cream/80"><PinIcon /> {t.location[project.location]}</p>
+          <p className="mt-2 flex items-center gap-1.5 text-cream/80"><PinIcon /> {localName(t, project.locationName)}</p>
         </div>
       </section>
 

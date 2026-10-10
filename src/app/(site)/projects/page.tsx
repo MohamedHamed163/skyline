@@ -4,8 +4,6 @@ import { getDict } from "@/lib/i18n";
 import { groupProjects } from "@/lib/search";
 import { getPublishedProperties } from "@/lib/store";
 
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getDict()).project.metaTitle };
 }

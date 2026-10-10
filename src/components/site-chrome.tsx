@@ -1,26 +1,29 @@
 import Image from "next/image";
-import Link from "next/link";
 import { LanguageSwitch } from "@/components/language-switch";
+import { NavLink, NavMenu } from "@/components/nav-link";
 import { getDict } from "@/lib/i18n";
 
 export function Logo({ href = "/", className = "" }: { href?: string; className?: string }) {
   return (
-    <Link href={href} className={`inline-flex shrink-0 items-center ${className}`}>
+    <NavLink href={href} className={`inline-flex shrink-0 items-center ${className}`}>
       <Image src="/brand/skyline-logo.png" alt="Skyline" width={1459} height={400} priority className="h-10 w-auto" />
-    </Link>
+    </NavLink>
   );
 }
+
+// Highlight for the navbar item of the page that is open.
+const ACTIVE = "bg-white/10 text-gold-light";
 
 async function navItems() {
   const t = (await getDict()).nav;
   return [
-    ["/properties", t.properties],
-    ["/properties?listing=premium", t.premium],
-    ["/properties?listing=resale", t.resale],
-    ["/properties?purpose=rent", t.rent],
-    ["/projects", t.projects],
-    ["/about", t.about],
-    ["/contact", t.contact],
+    { href: "/properties", label: t.properties },
+    { href: "/properties?listing=premium", label: t.premium },
+    { href: "/properties?listing=resale", label: t.resale },
+    { href: "/properties?purpose=rent", label: t.rent },
+    { href: "/projects", label: t.projects },
+    { href: "/about", label: t.about },
+    { href: "/contact", label: t.contact },
   ];
 }
 
@@ -32,25 +35,17 @@ export async function SiteHeader() {
       <div className="container-page flex h-16 items-center justify-between gap-4">
         <Logo />
         <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
-          {nav.map(([href, label]) => (
-            <Link key={href} href={href} className="rounded-lg px-3 py-2 hover:text-gold-light">
-              {label}
-            </Link>
-          ))}
+          <NavMenu items={nav} className="rounded-lg px-3 py-2 hover:text-gold-light" activeClassName={ACTIVE} />
         </nav>
         <div className="flex items-center gap-2">
           <LanguageSwitch dark />
-          <Link href="/submit" className="btn-primary">
+          <NavLink href="/submit" className="btn-primary">
             {t.nav.listProperty}
-          </Link>
+          </NavLink>
         </div>
       </div>
       <nav className="container-page flex gap-1 overflow-x-auto pb-2 text-sm font-medium md:hidden">
-        {nav.map(([href, label]) => (
-          <Link key={href} href={href} className="shrink-0 rounded-lg px-3 py-1.5 hover:text-gold-light">
-            {label}
-          </Link>
-        ))}
+        <NavMenu items={nav} className="shrink-0 rounded-lg px-3 py-1.5 hover:text-gold-light" activeClassName={ACTIVE} />
       </nav>
     </header>
   );
@@ -68,14 +63,7 @@ export async function SiteFooter() {
           <p className="mt-1 text-sm">{t.footer.tagline}</p>
         </div>
         <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          {nav.map(([href, label]) => (
-            <Link key={href} href={href} className="hover:text-white">
-              {label}
-            </Link>
-          ))}
-          <Link href="/submit" className="hover:text-white">
-            {t.nav.listProperty}
-          </Link>
+          <NavMenu items={[...nav, { href: "/submit", label: t.nav.listProperty }]} className="hover:text-white" activeClassName="text-gold-light" />
         </nav>
       </div>
       <div className="border-t border-white/10 py-4 text-center text-xs text-white/50">

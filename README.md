@@ -25,9 +25,49 @@ Set `ADMIN_PASSWORD` (and optionally `SESSION_SECRET`) in `.env.local` to enable
 
 ## Data
 
-`src/lib/store.ts` is a starter in-memory store (saved under `.data/` locally, seeded from
-`src/lib/seed.ts`). On Vercel it resets when the server instance restarts — replace it with a real
-database and file storage before going live.
+Postgres on Neon (`src/lib/store.ts`, schema in `src/lib/schema.sql`). Pull `DATABASE_URL` with
+`vercel env pull`, then run `npm run db:setup` to create or migrate the tables. This is safe to re-run,
+and it loads the sample data from `src/lib/seed.ts` only into an empty database. Photos are stored in
+Vercel Blob (`BLOB_READ_WRITE_TOKEN`).
+
+For load and pagination testing, `scripts/load-test-units.sql` adds 80 extra properties (ids
+`load-001`…`load-080`) across every location and status, including rentals. Run it in any SQL client.
+The file ends with the statements that remove the set again.
+
+## Features
+
+- [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
+- [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.
+
+## Caching
+
+Public pages read their data (published properties, locations) from a cache. The database is
+queried once, not on every page view, and admin changes expire the cache immediately. See
+[docs/caching.md](docs/caching.md).
+
+## Tests
+
+```bash
+npm test            # run once
+npm run test:watch  # re-run on change
+```
+
+Unit tests use [Vitest](https://vitest.dev) and live next to the code (`src/**/*.test.ts`). Server
+actions are tested with the store, auth and Next.js modules mocked, so no database is needed. Test
+data builders are in `src/test/fixtures.ts`.
+
+## Rate limiting
+
+Every request is rate limited per IP in `src/proxy.ts`, and admin login attempts are capped at 5
+per 15 minutes. Navbar links ignore clicks on the page that is already open, and they highlight
+the current page. See [docs/rate-limiting.md](docs/rate-limiting.md), which also covers the
+recommended Vercel Firewall rule.
+
+## Tests
+
+```bash
+npm test
+```
 
 ## Domains
 

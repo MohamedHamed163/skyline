@@ -53,3 +53,32 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS rent_period text;
 CREATE SEQUENCE IF NOT EXISTS property_code_premium;
 CREATE SEQUENCE IF NOT EXISTS property_code_resale;
 CREATE SEQUENCE IF NOT EXISTS property_code_rent;
+
+-- Locations are managed by the admin (/admin/locations). properties.location holds the location id.
+CREATE TABLE IF NOT EXISTS locations (
+  id         text PRIMARY KEY,            -- slug of the English name, never changes (used in URLs)
+  name_en    text NOT NULL,
+  name_ar    text NOT NULL,
+  cover      text,                        -- home-page cover photo URL
+  archived   boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- The locations that used to be hard-coded. Inserted once; an admin's later edits or hiding are kept.
+INSERT INTO locations (id, name_en, name_ar, cover) VALUES
+  ('new-cairo', 'New Cairo', 'القاهرة الجديدة', '/listings/villa-1.jpg'),
+  ('new-administrative-capital', 'New Administrative Capital', 'العاصمة الإدارية الجديدة', '/listings/villa-2.jpg'),
+  ('giza', 'Giza', 'الجيزة', '/listings/villa-4.jpg'),
+  ('alexandria', 'Alexandria', 'الإسكندرية', '/listings/building-1.jpg'),
+  ('north-coast', 'North Coast', 'الساحل الشمالي', '/listings/villa-5.jpg'),
+  ('ain-sokhna', 'Ain Sokhna', 'العين السخنة', '/listings/chalet-1.jpg'),
+  ('future-city', 'Future City', 'مدينة المستقبل', '/listings/villa-3.jpg')
+ON CONFLICT (id) DO NOTHING;
+
+-- Older rows stored the English name; switch them to the id.
+UPDATE properties p SET location = l.id FROM locations l WHERE p.location = l.name_en;
+
+DO $$ BEGIN
+  ALTER TABLE properties ADD CONSTRAINT properties_location_fkey FOREIGN KEY (location) REFERENCES locations (id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

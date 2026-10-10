@@ -5,36 +5,26 @@ import { Photo, PropertyCard } from "@/components/property-card";
 import { SearchBar } from "@/components/search-bar";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { groupProjects, locationStats, searchHref, parseSearch } from "@/lib/search";
-import { getPublishedProperties } from "@/lib/store";
-import type { Location } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
-
-const LOCATION_COVERS: Record<Location, string> = {
-  "New Cairo": "/listings/villa-1.jpg",
-  "New Administrative Capital": "/listings/villa-2.jpg",
-  Giza: "/listings/villa-4.jpg",
-  Alexandria: "/listings/building-1.jpg",
-  "North Coast": "/listings/villa-5.jpg",
-  "Ain Sokhna": "/listings/chalet-1.jpg",
-  "Future City": "/listings/villa-3.jpg",
-};
+import { DEFAULT_LOCATION_COVER, locationLabel } from "@/lib/locations";
+import { groupProjects, locationStats, popularLocationSearches, searchHref, parseSearch } from "@/lib/search";
+import { getActiveLocations, getPublishedProperties } from "@/lib/store";
 
 export default async function HomePage() {
-  const [t, all] = await Promise.all([getDict(), getPublishedProperties()]);
+  const [t, all, locations] = await Promise.all([getDict(), getPublishedProperties(), getActiveLocations()]);
   const h = t.home;
   const published = all.filter((p) => p.purpose === "sale");
   const rentals = all.filter((p) => p.purpose === "rent");
   const projects = groupProjects(published).slice(0, 4);
-  const stats = locationStats(published).filter((s) => s.count > 0);
+  const allStats = locationStats(published, locations);
+  const stats = allStats.filter((s) => s.count > 0);
   const maxSqm = Math.max(1, ...stats.map((s) => s.avgSqm));
   const empty = parseSearch({});
   const popular = [
     { label: t.listing.premium, href: searchHref(empty, { listing: "premium" }) },
-    { label: `${t.type.villa} · ${t.location["New Cairo"]}`, href: searchHref(empty, { types: ["villa"], locations: ["New Cairo"] }) },
-    { label: `${t.type.chalet} · ${t.location["North Coast"]}`, href: searchHref(empty, { types: ["chalet"], locations: ["North Coast"] }) },
-    { label: `${t.type.apartment} · ${t.location["New Administrative Capital"]}`, href: searchHref(empty, { types: ["apartment"], locations: ["New Administrative Capital"] }) },
+    ...popularLocationSearches(published, locations).map(({ location, type }) => ({
+      label: `${t.type[type]} · ${locationLabel(t, location)}`,
+      href: searchHref(empty, { types: [type], locations: [location.id] }),
+    })),
     { label: fmt(t.finder.priceUpTo, { price: formatPrice(5_000_000, t.currency) }), href: searchHref(empty, { maxPrice: 5_000_000 }) },
     { label: t.home.rentEyebrow, href: searchHref(empty, { purpose: "rent" }) },
   ];
@@ -141,11 +131,11 @@ export default async function HomePage() {
         <p className="eyebrow">{h.locEyebrow}</p>
         <h2 className="mt-2 text-2xl font-bold sm:text-3xl">{h.locTitle}</h2>
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {locationStats(published).map((s) => (
-            <Link key={s.location} href={searchHref(empty, { locations: [s.location] })} className="group relative isolate flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-2xl p-4 text-cream sm:p-5">
-              <Photo src={LOCATION_COVERS[s.location]} alt="" className="absolute inset-0 -z-10 h-full w-full transition-transform duration-500 group-hover:scale-105" />
+          {allStats.map((s) => (
+            <Link key={s.location.id} href={searchHref(empty, { locations: [s.location.id] })} className="group relative isolate flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-2xl p-4 text-cream sm:p-5">
+              <Photo src={s.location.cover || DEFAULT_LOCATION_COVER} alt="" className="absolute inset-0 -z-10 h-full w-full transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 -z-10 bg-gradient-to-t from-deep/90 to-transparent" />
-              <p className="text-lg font-bold sm:text-xl">{t.location[s.location]}</p>
+              <p className="text-lg font-bold sm:text-xl">{locationLabel(t, s.location)}</p>
               <p className="text-sm text-cream/80">{fmt(h.available, { count: s.count })}</p>
               {s.avgSqm > 0 && <p className="text-xs font-semibold text-gold-light">{fmt(t.filters.avgSqm, { price: formatPrice(s.avgSqm, t.currency) })}</p>}
             </Link>
@@ -177,10 +167,10 @@ export default async function HomePage() {
                 <p className="mb-4 text-sm font-semibold">{t.market.avgSqm}</p>
                 <ul className="space-y-3">
                   {stats.map((s) => (
-                    <li key={s.location}>
+                    <li key={s.location.id}>
                       <div className="flex items-center justify-between text-sm">
-                        <Link href={searchHref(empty, { locations: [s.location] })} className="font-medium hover:text-gold-deep">
-                          {t.location[s.location]}
+                        <Link href={searchHref(empty, { locations: [s.location.id] })} className="font-medium hover:text-gold-deep">
+                          {locationLabel(t, s.location)}
                         </Link>
                         <span className="text-cocoa">
                           <span className="font-semibold text-espresso">{formatPrice(s.avgSqm, t.currency)}</span> {t.market.perSqm} · {s.count}

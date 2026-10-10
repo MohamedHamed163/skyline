@@ -3,24 +3,27 @@ import Link from "next/link";
 import { ActiveFilters, Filters } from "@/components/filters";
 import { PropertyCard } from "@/components/property-card";
 import { SearchBar } from "@/components/search-bar";
+import { SortSelect } from "@/components/sort-select";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { applySearch, avgPricePerSqm, isFiltered, paginate, parseSearch, searchHref, SORTS, type Sort } from "@/lib/search";
-import { getPublishedProperties } from "@/lib/store";
+import { applySearch, avgPricePerSqm, isFiltered, paginate, parseSearch, searchHref, sortHrefs, SORTS, type Sort } from "@/lib/search";
+import { locationLabel } from "@/lib/locations";
+import { getLocations, getPublishedProperties } from "@/lib/store";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getDict()).properties.metaTitle };
 }
 
 export default async function PropertiesPage({ searchParams }: PageProps<"/properties">) {
-  const [t, params, published] = await Promise.all([getDict(), searchParams, getPublishedProperties()]);
+  const [t, params, published, locations] = await Promise.all([getDict(), searchParams, getPublishedProperties(), getLocations()]);
   const f = t.filters;
   const query = parseSearch(params);
   const results = applySearch(published, query);
   const page = paginate(results, query.page);
   const compounds = [...new Set(published.map((p) => p.compound).filter(Boolean))].sort();
   const sortLabels: Record<Sort, string> = { newest: f.sortNewest, price_asc: f.sortPriceAsc, price_desc: f.sortPriceDesc, area_desc: f.sortAreaDesc };
-  const heading = query.purpose === "rent" ? t.properties.titleRent : query.listing ? fmt(t.properties.titleListing, { listing: t.listing[query.listing] }) : query.locations.length === 1 ? t.location[query.locations[0]] : t.properties.titleAll;
+  const onlyLocation = query.locations.length === 1 ? locations.find((l) => l.id === query.locations[0]) : undefined;
+  const heading = query.purpose === "rent" ? t.properties.titleRent : query.listing ? fmt(t.properties.titleListing, { listing: t.listing[query.listing] }) : onlyLocation ? locationLabel(t, onlyLocation) : t.properties.titleAll;
 
   return (
     <div className="container-page py-8">
@@ -33,7 +36,7 @@ export default async function PropertiesPage({ searchParams }: PageProps<"/prope
           <Filters query={query} compounds={compounds} />
         </aside>
 
-        <section className="min-w-0">
+        <section className="group/results min-w-0">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold sm:text-3xl">{heading}</h1>
@@ -42,29 +45,7 @@ export default async function PropertiesPage({ searchParams }: PageProps<"/prope
                 {results.length > 0 && <> · {fmt(f.avgSqm, { price: formatPrice(avgPricePerSqm(results), t.currency) })}</>}
               </p>
             </div>
-            <form action="/properties" className="flex items-center gap-2 text-sm">
-              {Object.entries({ q: query.q, purpose: query.purpose === "rent" ? "rent" : "", period: query.period ?? "", listing: query.listing ?? "", compound: query.compound, beds: query.beds || "", baths: query.baths || "", min: query.minPrice || "", max: query.maxPrice || "", minArea: query.minArea || "", maxArea: query.maxArea || "" })
-                .filter(([, v]) => v)
-                .map(([k, v]) => (
-                  <input key={k} type="hidden" name={k} value={String(v)} />
-                ))}
-              {query.types.map((v) => <input key={v} type="hidden" name="type" value={v} />)}
-              {query.locations.map((v) => <input key={v} type="hidden" name="location" value={v} />)}
-              {query.features.map((v) => <input key={v} type="hidden" name="feature" value={v} />)}
-              <label htmlFor="sort" className="text-cocoa">
-                {f.sort}
-              </label>
-              <select id="sort" name="sort" defaultValue={query.sort} className="field w-auto py-1.5">
-                {SORTS.map((s) => (
-                  <option key={s} value={s}>
-                    {sortLabels[s]}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="btn-outline btn-sm">
-                {f.apply.split(" ")[0]}
-              </button>
-            </form>
+            <SortSelect label={f.sort} value={query.sort} options={SORTS.map((s) => ({ value: s, label: sortLabels[s] }))} hrefs={sortHrefs(query)} />
           </div>
 
           {isFiltered(query) && (
@@ -75,7 +56,7 @@ export default async function PropertiesPage({ searchParams }: PageProps<"/prope
 
           {page.items.length > 0 ? (
             <>
-              <div className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-6 grid gap-6 transition-opacity sm:grid-cols-2 xl:grid-cols-3 group-has-data-pending/results:pointer-events-none group-has-data-pending/results:opacity-50">
                 {page.items.map((p) => (
                   <PropertyCard key={p.id} property={p} />
                 ))}

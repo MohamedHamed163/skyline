@@ -1,14 +1,16 @@
 import { SearchIcon } from "@/components/icons";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { locationLabel } from "@/lib/locations";
 import type { SearchQuery } from "@/lib/search";
-import { LISTING_TYPES, LOCATIONS, PROPERTY_TYPES } from "@/lib/types";
+import { getActiveLocations } from "@/lib/store";
+import { LISTING_TYPES, PROPERTY_TYPES } from "@/lib/types";
 
 const PRICE_STEPS = [2_000_000, 5_000_000, 10_000_000, 20_000_000, 50_000_000];
 
 // Property-Finder-style search bar (plain GET form, works without JS).
 export async function SearchBar({ query, compact = false }: { query?: Partial<SearchQuery>; compact?: boolean }) {
-  const t = await getDict();
+  const [t, locations] = await Promise.all([getDict(), getActiveLocations()]);
   const f = t.finder;
   const q = query ?? {};
 
@@ -38,9 +40,9 @@ export async function SearchBar({ query, compact = false }: { query?: Partial<Se
         </label>
         <select name="location" defaultValue={q.locations?.[0] ?? ""} aria-label={t.filters.location} className="field">
           <option value="">{f.anyLocation}</option>
-          {LOCATIONS.map((v) => (
-            <option key={v} value={v}>
-              {t.location[v]}
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>
+              {locationLabel(t, l)}
             </option>
           ))}
         </select>

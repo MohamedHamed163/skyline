@@ -13,16 +13,24 @@ export const PROPERTY_TYPES = [
 ] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
-export const LOCATIONS = [
-  "New Cairo",
-  "New Administrative Capital",
-  "Giza",
-  "Alexandria",
-  "North Coast",
-  "Ain Sokhna",
-  "Future City",
-] as const;
-export type Location = (typeof LOCATIONS)[number];
+/**
+ * A place properties are listed in (e.g. New Cairo). Managed by the admin at /admin/locations.
+ * `id` is a URL slug made from the English name on creation and never changes, so renaming keeps
+ * every property and search link working.
+ */
+export type Location = {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+  /** Home-page cover photo URL; null falls back to a default image. */
+  cover: string | null;
+  /** Hidden locations are kept for existing properties but can't be picked for new ones or searched. */
+  archived: boolean;
+  createdAt: string;
+};
+
+/** A location's display names, joined onto each property so pages don't need the location list. */
+export type LocationName = { en: string; ar: string };
 
 export const PURPOSES = ["sale", "rent"] as const;
 export type Purpose = (typeof PURPOSES)[number];
@@ -86,7 +94,9 @@ export type Property = {
   /** Price basis for rentals (null for sale). */
   rentPeriod: RentPeriod | null;
   type: PropertyType;
-  location: Location;
+  /** Location id (slug). */
+  location: string;
+  locationName: LocationName;
   compound: string;
   area: number;
   bedrooms: number;

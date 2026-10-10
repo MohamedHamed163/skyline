@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AreaIcon, BathIcon, BedIcon, PhotoIcon, PinIcon } from "@/components/icons";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict, type Dict } from "@/lib/i18n";
+import { localName } from "@/lib/locations";
 import type { ListingType, Property } from "@/lib/types";
 
 // Photos can be bundled files or uploads stored as URLs, so a plain <img> is used.
@@ -34,8 +35,8 @@ export function PurposeBadge({ t, p, className = "" }: { t: Dict; p: Pick<Proper
   );
 }
 
-export function placeLabel(t: Dict, p: Pick<Property, "compound" | "location">) {
-  const location = t.location[p.location];
+export function placeLabel(t: Dict, p: Pick<Property, "compound" | "locationName">) {
+  const location = localName(t, p.locationName);
   return p.compound ? `${p.compound}${t.locale === "ar" ? "، " : ", "}${location}` : location;
 }
 

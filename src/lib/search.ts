@@ -1,4 +1,4 @@
-import { FEATURES, LISTING_TYPES, LOCATIONS, PROPERTY_TYPES, RENT_PERIODS, type ListingType, type Location, type Property, type PropertyType, type Purpose, type RentPeriod } from "./types";
+import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose, type RentPeriod } from "./types";
 
 // Public search: parses URL params, filters/sorts published properties, paginates,
 // and derives the market and project summaries shown on the site.
@@ -14,7 +14,8 @@ export type SearchQuery = {
   period?: RentPeriod;
   listing?: ListingType;
   types: PropertyType[];
-  locations: Location[];
+  /** Location ids. Unknown ids simply match nothing. */
+  locations: string[];
   compound: string;
   beds: number;
   baths: number;
@@ -31,6 +32,7 @@ type Params = Record<string, string | string[] | undefined>;
 const list = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [v] : []);
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const num = (v: string | string[] | undefined) => Math.max(0, Number(one(v)) || 0);
+const LOCATION_ID = /^[a-z0-9-]{1,60}$/;
 
 export function parseSearch(params: Params): SearchQuery {
   // The search bar posts a single "tab" (all | premium | resale | rent); links use purpose/listing directly.
@@ -42,7 +44,7 @@ export function parseSearch(params: Params): SearchQuery {
     period: rent ? RENT_PERIODS.find((v) => v === one(params.period)) : undefined,
     listing: rent ? undefined : LISTING_TYPES.find((v) => v === (tab === "premium" || tab === "resale" ? tab : one(params.listing))),
     types: PROPERTY_TYPES.filter((v) => list(params.type).includes(v)),
-    locations: LOCATIONS.filter((v) => list(params.location).includes(v)),
+    locations: [...new Set(list(params.location).filter((v) => LOCATION_ID.test(v)))].slice(0, 20),
     compound: one(params.compound).trim().slice(0, 80),
     beds: num(params.beds),
     baths: num(params.baths),
@@ -87,11 +89,16 @@ export function searchHref(s: SearchQuery, overrides: Partial<SearchQuery> = {})
   return qs ? `/properties?${qs}` : "/properties";
 }
 
+/** The /properties URL for each sort order, keeping the current filters (page resets to 1). */
+export function sortHrefs(s: SearchQuery): Record<Sort, string> {
+  return Object.fromEntries(SORTS.map((sort) => [sort, searchHref(s, { sort })])) as Record<Sort, string>;
+}
+
 export function applySearch(properties: Property[], s: SearchQuery) {
   const q = s.q.toLowerCase();
   const out = properties.filter(
     (p) =>
-      (!q || [p.title, p.compound, p.code, p.location, p.description].join(" ").toLowerCase().includes(q)) &&
+      (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description].join(" ").toLowerCase().includes(q)) &&
       p.purpose === s.purpose &&
       (!s.period || p.rentPeriod === s.period) &&
       (!s.listing || p.listingType === s.listing) &&
@@ -127,9 +134,10 @@ export function paginate<T>(items: T[], page: number, perPage = PER_PAGE) {
 export const avgPricePerSqm = (items: Property[]) =>
   items.length ? Math.round(items.reduce((sum, p) => sum + p.price / p.area, 0) / items.length) : 0;
 
-export function locationStats(published: Property[]) {
-  return LOCATIONS.map((location) => {
-    const items = published.filter((p) => p.location === location);
+/** Market figures per location, in the order of `locations` (pass the active ones). */
+export function locationStats(published: Property[], locations: Location[]) {
+  return locations.map((location) => {
+    const items = published.filter((p) => p.location === location.id);
     const prices = items.map((p) => p.price);
     return {
       location,
@@ -141,12 +149,31 @@ export function locationStats(published: Property[]) {
   });
 }
 
+/**
+ * Home-page "popular searches": the busiest locations, each paired with its most listed type.
+ * Derived from live data so it follows whatever locations the admin manages.
+ */
+export function popularLocationSearches(published: Property[], locations: Location[], limit = 3) {
+  return locations
+    .map((location) => {
+      const items = published.filter((p) => p.location === location.id);
+      const counts = new Map<PropertyType, number>();
+      for (const p of items) counts.set(p.type, (counts.get(p.type) ?? 0) + 1);
+      const type = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      return { location, type, count: items.length };
+    })
+    .filter((x): x is { location: Location; type: PropertyType; count: number } => x.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
 // ---- Projects (properties grouped by compound) ----
 
 export type Project = {
   compound: string;
   slug: string;
-  location: Location;
+  location: string;
+  locationName: LocationName;
   listingType: ListingType;
   properties: Property[];
   cover: string;
@@ -170,6 +197,7 @@ export function groupProjects(published: Property[]): Project[] {
         compound,
         slug: projectSlug(compound),
         location: properties[0].location,
+        locationName: properties[0].locationName,
         listingType: premium * 2 >= properties.length ? "premium" : "resale",
         properties,
         cover: properties[0].photos[0],

@@ -4,25 +4,14 @@ import { useActionState, useState } from "react";
 import { PropertyFields } from "@/components/property-fields";
 import { createPropertyAdmin, submitProperty } from "@/lib/actions";
 import { fmt, useDict } from "@/lib/i18n/client";
-import type { Purpose } from "@/lib/types";
+import { toJpegDataUrl } from "@/lib/jpeg";
+import type { Location, Purpose } from "@/lib/types";
 
 const MAX_PHOTOS = 6;
 
-// Downscale in the browser so uploads stay small.
-async function toJpegDataUrl(file: File, maxSide = 1280, quality = 0.72) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return canvas.toDataURL("image/jpeg", quality);
-}
-
 // mode "public": broker/owner submission (sale only, goes to review).
 // mode "admin": Skyline adds a property (sale or rent), published straight away.
-export function PropertyForm({ mode, defaultPurpose = "sale" }: { mode: "public" | "admin"; defaultPurpose?: Purpose }) {
+export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mode: "public" | "admin"; locations: Location[]; defaultPurpose?: Purpose }) {
   const t = useDict();
   const admin = mode === "admin";
   const [state, action, pending] = useActionState(admin ? createPropertyAdmin : submitProperty, null);
@@ -63,7 +52,7 @@ export function PropertyForm({ mode, defaultPurpose = "sale" }: { mode: "public"
       }}
       className="space-y-8"
     >
-      <PropertyFields admin={admin} defaultPurpose={defaultPurpose} />
+      <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} />
 
       <fieldset>
         <legend className="mb-1 text-lg font-bold">{t.submit.images}</legend>

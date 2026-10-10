@@ -1,7 +1,9 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
+import { CACHE_TAGS, PUBLIC_DATA_TTL } from "./cache-tags";
 import { sql } from "./db";
-import type { Lead, LeadStatus, Property, PropertyStatus } from "./types";
+import type { Lead, LeadStatus, Location, Property, PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
 
@@ -19,7 +21,9 @@ const toProperty = (r: Row): Property => ({
   purpose: (r.purpose as Property["purpose"]) ?? "sale",
   rentPeriod: (r.rent_period as Property["rentPeriod"]) ?? null,
   type: r.type as Property["type"],
-  location: r.location as Property["location"],
+  location: r.location as string,
+  // Joined from locations (see PROPERTY_SELECT); falls back to the id if the row is missing.
+  locationName: { en: (r.location_en as string) ?? (r.location as string), ar: (r.location_ar as string) ?? (r.location as string) },
   compound: r.compound as string,
   area: r.area as number,
   bedrooms: r.bedrooms as number,
@@ -58,32 +62,54 @@ const toLead = (r: Row): Lead => ({
   updatedAt: iso(r.updated_at),
 });
 
+const toLocation = (r: Row): Location => ({
+  id: r.id as string,
+  nameEn: r.name_en as string,
+  nameAr: r.name_ar as string,
+  cover: r.cover as string | null,
+  archived: r.archived as boolean,
+  createdAt: iso(r.created_at),
+});
+
 // ---- Properties ----
+
+// Every property read joins its location names, so pages can label it without loading all locations.
+const PROPERTY_SELECT = () => sql()`
+  SELECT p.*, l.name_en AS location_en, l.name_ar AS location_ar
+  FROM properties p LEFT JOIN locations l ON l.id = p.location`;
 
 // cache(): the admin layout and page both need these lists; query once per request.
 export const getProperties = cache(async () =>
-  (await sql()`SELECT * FROM properties ORDER BY created_at DESC`).map(toProperty),
+  (await sql()`${PROPERTY_SELECT()} ORDER BY p.created_at DESC`).map(toProperty),
 );
 
-/** Only published properties are visible on the public site. */
-export async function getPublishedProperties() {
-  const rows = await sql()`SELECT * FROM properties WHERE status = 'published' ORDER BY created_at DESC`;
-  return rows.map(toProperty);
+/**
+ * Only published properties are visible on the public site. Cached across requests (see
+ * docs/caching.md): every public page reads this one list, so page views don't hit the database.
+ * Location names are joined in, so it is tagged with both properties and locations.
+ */
+export const getPublishedProperties = cache(
+  unstable_cache(
+    async () =>
+      (await sql()`${PROPERTY_SELECT()} WHERE p.status = 'published' ORDER BY p.created_at DESC`).map(toProperty),
+    ["published-properties"],
+    { tags: [CACHE_TAGS.properties, CACHE_TAGS.locations], revalidate: PUBLIC_DATA_TTL },
+  ),
+);
+
+/** A published property by its code, looked up in the cached list: unknown codes never reach the database. */
+export async function getPublishedProperty(code: string) {
+  return (await getPublishedProperties()).find((p) => p.code === code);
 }
 
 export async function getProperty(id: string) {
-  const [row] = await sql()`SELECT * FROM properties WHERE id = ${id}`;
-  return row ? toProperty(row) : undefined;
-}
-
-export async function getPropertyByCode(code: string) {
-  const [row] = await sql()`SELECT * FROM properties WHERE code = ${code}`;
+  const [row] = await sql()`${PROPERTY_SELECT()} WHERE p.id = ${id}`;
   return row ? toProperty(row) : undefined;
 }
 
 export type PropertyInput = Omit<
   Property,
-  "id" | "code" | "status" | "previousStatus" | "adminNotes" | "photos" | "createdAt" | "updatedAt"
+  "id" | "code" | "locationName" | "status" | "previousStatus" | "adminNotes" | "photos" | "createdAt" | "updatedAt"
 >;
 
 const propertyColumns = (p: PropertyInput) => ({
@@ -133,6 +159,35 @@ export async function setPropertyStatus(id: string, status: PropertyStatus, admi
       admin_notes = COALESCE(${adminNotes ?? null}, admin_notes),
       updated_at = now()
     WHERE id = ${id}`;
+}
+
+// ---- Locations ----
+
+/** All locations, hidden ones included, alphabetical by English name. Cached across requests. */
+export const getLocations = cache(
+  unstable_cache(async () => (await sql()`SELECT * FROM locations ORDER BY name_en`).map(toLocation), ["locations"], {
+    tags: [CACHE_TAGS.locations],
+    revalidate: PUBLIC_DATA_TTL,
+  }),
+);
+
+export async function getActiveLocations() {
+  return (await getLocations()).filter((l) => !l.archived);
+}
+
+export async function createLocation(input: Pick<Location, "id" | "nameEn" | "nameAr" | "cover">) {
+  await sql()`INSERT INTO locations ${sql()({ id: input.id, name_en: input.nameEn, name_ar: input.nameAr, cover: input.cover })}`;
+}
+
+/** `cover` undefined keeps the current photo. The id never changes. */
+export async function updateLocation(id: string, patch: { nameEn: string; nameAr: string; cover?: string | null }) {
+  const row = { name_en: patch.nameEn, name_ar: patch.nameAr, ...(patch.cover !== undefined && { cover: patch.cover }) };
+  await sql()`UPDATE locations SET ${sql()(row)} WHERE id = ${id}`;
+}
+
+/** Locations are never deleted (properties reference them); hiding is reversible. */
+export async function setLocationArchived(id: string, archived: boolean) {
+  await sql()`UPDATE locations SET archived = ${archived} WHERE id = ${id}`;
 }
 
 // ---- Leads ----

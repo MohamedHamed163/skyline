@@ -4,14 +4,15 @@ import { CopyCode } from "@/components/copy-button";
 import { priceText } from "@/components/property-card";
 import { formatDay } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { getProperties } from "@/lib/store";
-import { LISTING_TYPES, LOCATIONS, PROPERTY_STATUSES, PROPERTY_TYPES, PURPOSES, SELLER_TYPES } from "@/lib/types";
+import { locationLabel, localName } from "@/lib/locations";
+import { getLocations, getProperties } from "@/lib/store";
+import { LISTING_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, PURPOSES, SELLER_TYPES } from "@/lib/types";
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const digits = (s: string) => s.replace(/\D/g, "");
 
 export default async function AdminPropertiesPage({ searchParams }: PageProps<"/admin/properties">) {
-  const [t, params, all] = await Promise.all([getDict(), searchParams, getProperties()]);
+  const [t, params, all, locations] = await Promise.all([getDict(), searchParams, getProperties(), getLocations()]);
   const a = t.admin;
   const q = one(params.q).trim().toLowerCase();
   const listing = LISTING_TYPES.find((v) => v === params.listing);
@@ -20,7 +21,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
   const status = PROPERTY_STATUSES.find((s) => s === statusParam);
   const inactive = statusParam === "inactive";
   const type = PROPERTY_TYPES.find((v) => v === params.type);
-  const location = LOCATIONS.find((v) => v === params.location);
+  const location = locations.find((l) => l.id === params.location)?.id;
   const compound = one(params.compound);
   const seller = SELLER_TYPES.find((v) => v === params.seller);
   const purpose = PURPOSES.find((v) => v === params.purpose);
@@ -106,9 +107,9 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
         </select>
         <select name="location" defaultValue={location ?? ""} aria-label={t.fields.location} className="field">
           <option value="">{t.properties.anyLocation}</option>
-          {LOCATIONS.map((v) => (
-            <option key={v} value={v}>
-              {t.location[v]}
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>
+              {locationLabel(t, l)} {l.archived && a.locations.hiddenTag}
             </option>
           ))}
         </select>
@@ -168,7 +169,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
                   <td className="whitespace-nowrap px-3 py-3">{t.type[p.type]}</td>
                   <td className="whitespace-nowrap px-3 py-3">{p.purpose === "rent" ? t.purposeBadge.rent : t.listing[p.listingType]}</td>
                   <td className="whitespace-nowrap px-3 py-3">{p.compound || t.none}</td>
-                  <td className="whitespace-nowrap px-3 py-3">{t.location[p.location]}</td>
+                  <td className="whitespace-nowrap px-3 py-3">{localName(t, p.locationName)}</td>
                   <td className="whitespace-nowrap px-3 py-3 font-semibold">{priceText(t, p)}</td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {p.seller.name}

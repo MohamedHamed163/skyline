@@ -2,21 +2,23 @@
 
 import { useState } from "react";
 import { fmt, useDict } from "@/lib/i18n/client";
+import { locationLabel } from "@/lib/locations";
 import {
   FEATURES,
   LISTING_TYPES,
-  LOCATIONS,
   PROPERTY_TYPES,
   PURPOSES,
   RENT_PERIODS,
   SELLER_TYPES,
+  type Location,
   type Property,
   type Purpose,
 } from "@/lib/types";
 
 // Property + seller inputs shared by the public submission form and the admin forms.
 // admin = true unlocks the rent purpose and the "Skyline (company)" seller.
-export function PropertyFields({ defaults, admin = false, defaultPurpose = "sale" }: { defaults?: Property; admin?: boolean; defaultPurpose?: Purpose }) {
+// locations: the choices for the location field (see selectableLocations).
+export function PropertyFields({ locations, defaults, admin = false, defaultPurpose = "sale" }: { locations: Location[]; defaults?: Property; admin?: boolean; defaultPurpose?: Purpose }) {
   const t = useDict();
   const f = t.fields;
   const d = defaults;
@@ -95,9 +97,9 @@ export function PropertyFields({ defaults, admin = false, defaultPurpose = "sale
             {f.location}
           </label>
           <select id="location" name="location" required defaultValue={d?.location} className="field">
-            {LOCATIONS.map((v) => (
-              <option key={v} value={v}>
-                {t.location[v]}
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {locationLabel(t, l)} {l.archived && t.admin.locations.hiddenTag}
               </option>
             ))}
           </select>

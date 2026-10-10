@@ -2,8 +2,10 @@ import Link from "next/link";
 import { CloseIcon } from "@/components/icons";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { locationLabel } from "@/lib/locations";
 import { searchHref, type SearchQuery } from "@/lib/search";
-import { FEATURES, LISTING_TYPES, LOCATIONS, PROPERTY_TYPES, RENT_PERIODS } from "@/lib/types";
+import { getActiveLocations, getLocations } from "@/lib/store";
+import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS } from "@/lib/types";
 
 function Chips<T extends string | number>({ name, options, selected, labels, multiple }: { name: string; options: T[]; selected: T[]; labels: (v: T) => string; multiple?: boolean }) {
   return (
@@ -31,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 // Bayut-style filter sidebar. Plain GET form; collapsible on small screens.
 export async function Filters({ query, compounds }: { query: SearchQuery; compounds: string[] }) {
-  const t = await getDict();
+  const [t, locations] = await Promise.all([getDict(), getActiveLocations()]);
   const f = t.filters;
   const plus = (n: number) => fmt(f.plus, { n });
 
@@ -56,10 +58,10 @@ export async function Filters({ query, compounds }: { query: SearchQuery; compou
 
         <Section title={f.location}>
           <div className="space-y-1.5">
-            {LOCATIONS.map((v) => (
-              <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
-                <input type="checkbox" name="location" value={v} defaultChecked={query.locations.includes(v)} className="h-4 w-4 accent-gold" />
-                {t.location[v]}
+            {locations.map((l) => (
+              <label key={l.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" name="location" value={l.id} defaultChecked={query.locations.includes(l.id)} className="h-4 w-4 accent-gold" />
+                {locationLabel(t, l)}
               </label>
             ))}
           </div>
@@ -146,13 +148,16 @@ export async function Filters({ query, compounds }: { query: SearchQuery; compou
 
 /** Removable chips summarising the active filters (Bayut-style). */
 export async function ActiveFilters({ query }: { query: SearchQuery }) {
-  const t = await getDict();
+  const [t, locations] = await Promise.all([getDict(), getLocations()]);
   const f = t.filters;
   const chips: { label: string; href: string }[] = [];
   if (query.q) chips.push({ label: `“${query.q}”`, href: searchHref(query, { q: "" }) });
   if (query.listing) chips.push({ label: t.listing[query.listing], href: searchHref(query, { listing: undefined }) });
   if (query.period) chips.push({ label: `${f.period} ${t.rentPeriod[query.period]}`, href: searchHref(query, { period: undefined }) });
-  query.locations.forEach((v) => chips.push({ label: t.location[v], href: searchHref(query, { locations: query.locations.filter((x) => x !== v) }) }));
+  query.locations.forEach((v) => {
+    const l = locations.find((x) => x.id === v);
+    if (l) chips.push({ label: locationLabel(t, l), href: searchHref(query, { locations: query.locations.filter((x) => x !== v) }) });
+  });
   query.types.forEach((v) => chips.push({ label: t.type[v], href: searchHref(query, { types: query.types.filter((x) => x !== v) }) }));
   if (query.compound) chips.push({ label: query.compound, href: searchHref(query, { compound: "" }) });
   if (query.beds) chips.push({ label: `${fmt(t.filters.plus, { n: query.beds })} ${t.filters.bedrooms}`, href: searchHref(query, { beds: 0 }) });

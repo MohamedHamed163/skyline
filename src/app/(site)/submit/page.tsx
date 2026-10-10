@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { PropertyForm } from "@/components/property-form";
 import { getDict } from "@/lib/i18n";
+import { getActiveLocations } from "@/lib/store";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getDict()).submit.metaTitle };
 }
 
 export default async function SubmitPage() {
-  const t = (await getDict()).submit;
+  const [{ submit: t }, locations] = await Promise.all([getDict(), getActiveLocations()]);
   return (
     <>
       <section className="bg-espresso text-white">
@@ -28,7 +29,7 @@ export default async function SubmitPage() {
 
       <section className="container-page py-12">
         <div className="card mx-auto max-w-3xl p-6 sm:p-10">
-          <PropertyForm mode="public" />
+          <PropertyForm mode="public" locations={locations} />
         </div>
       </section>
     </>

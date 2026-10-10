@@ -10,9 +10,11 @@ const SELLERS: Record<string, Seller> = {
   d: { type: "owner", name: "Sample Owner D", phone: "+20 100 000 0004", whatsapp: "", company: "" },
 };
 
-type SeedInput = Omit<Property, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod"> & { age: number };
+// Location names live in the locations table, so seed rows only carry the location id.
+type SeedProperty = Omit<Property, "locationName">;
+type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod"> & { age: number };
 
-const property = ({ age, ...p }: SeedInput): Property => ({
+const property = ({ age, ...p }: SeedInput): SeedProperty => ({
   ...p,
   purpose: "sale",
   rentPeriod: null,
@@ -24,7 +26,7 @@ const property = ({ age, ...p }: SeedInput): Property => ({
 
 export const seedCounters = () => ({ premium: 3, resale: 4 });
 
-export function seedProperties(): Property[] {
+export function seedProperties(): SeedProperty[] {
   return [
     property({
       id: "sample-01",
@@ -32,7 +34,7 @@ export function seedProperties(): Property[] {
       title: "Modern villa with private pool",
       listingType: "premium",
       type: "villa",
-      location: "New Cairo",
+      location: "new-cairo",
       compound: "Sample Hills",
       area: 420,
       bedrooms: 5,
@@ -52,7 +54,7 @@ export function seedProperties(): Property[] {
       title: "Sunny 3-bedroom apartment",
       listingType: "resale",
       type: "apartment",
-      location: "Giza",
+      location: "giza",
       compound: "Sample Gardens",
       area: 165,
       bedrooms: 3,
@@ -72,7 +74,7 @@ export function seedProperties(): Property[] {
       title: "Beachfront chalet",
       listingType: "resale",
       type: "chalet",
-      location: "North Coast",
+      location: "north-coast",
       compound: "Sample Bay",
       area: 110,
       bedrooms: 2,
@@ -92,7 +94,7 @@ export function seedProperties(): Property[] {
       title: "Garden villa with terrace and pool",
       listingType: "premium",
       type: "villa",
-      location: "Giza",
+      location: "giza",
       compound: "Sample Gardens",
       area: 510,
       bedrooms: 6,
@@ -112,7 +114,7 @@ export function seedProperties(): Property[] {
       title: "Duplex near the Corniche",
       listingType: "resale",
       type: "duplex",
-      location: "Alexandria",
+      location: "alexandria",
       compound: "",
       area: 190,
       bedrooms: 3,
@@ -131,7 +133,7 @@ export function seedProperties(): Property[] {
       title: "Contemporary twin house",
       listingType: "premium",
       type: "twin_house",
-      location: "Giza",
+      location: "giza",
       compound: "Sample Park",
       area: 380,
       bedrooms: 4,
@@ -150,7 +152,7 @@ export function seedProperties(): Property[] {
       title: "Compact city apartment",
       listingType: "resale",
       type: "apartment",
-      location: "New Cairo",
+      location: "new-cairo",
       compound: "Sample Hills",
       area: 95,
       bedrooms: 2,
@@ -169,7 +171,7 @@ export function seedProperties(): Property[] {
       title: "Poolside chalet",
       listingType: "resale",
       type: "chalet",
-      location: "North Coast",
+      location: "north-coast",
       compound: "Sample Bay",
       area: 140,
       bedrooms: 3,
@@ -188,7 +190,7 @@ export function seedProperties(): Property[] {
       title: "White villa with infinity pool",
       listingType: "premium",
       type: "villa",
-      location: "New Cairo",
+      location: "new-cairo",
       compound: "Sample Heights",
       area: 600,
       bedrooms: 6,

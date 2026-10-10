@@ -3,6 +3,7 @@ import { PinIcon } from "@/components/icons";
 import { ListingBadge, Photo } from "@/components/property-card";
 import { formatPrice } from "@/lib/format";
 import { fmt, type Dict } from "@/lib/i18n";
+import { localName } from "@/lib/locations";
 import type { Project } from "@/lib/search";
 
 export function ProjectCard({ t, project }: { t: Dict; project: Project }) {
@@ -13,7 +14,7 @@ export function ProjectCard({ t, project }: { t: Dict; project: Project }) {
       <ListingBadge type={project.listingType} label={t.listing[project.listingType]} className="absolute start-4 top-4" />
       <p className="text-xl font-extrabold">{project.compound}</p>
       <p className="flex items-center gap-1.5 text-sm text-cream/80">
-        <PinIcon /> {t.location[project.location]} · {fmt(t.project.units, { n: project.properties.length })}
+        <PinIcon /> {localName(t, project.locationName)} · {fmt(t.project.units, { n: project.properties.length })}
       </p>
       <p className="mt-2 text-sm font-semibold text-gold-light">{fmt(t.project.from, { price: formatPrice(project.minPrice, t.currency) })}</p>
     </Link>

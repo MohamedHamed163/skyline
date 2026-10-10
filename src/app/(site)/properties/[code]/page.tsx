@@ -8,15 +8,13 @@ import { PropertyCard, PurposeBadge, placeLabel, priceText } from "@/components/
 import { ShareButton } from "@/components/share-button";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { localName } from "@/lib/locations";
 import { avgPricePerSqm, projectSlug, searchHref, parseSearch, similarTo } from "@/lib/search";
-import { getPropertyByCode, getPublishedProperties } from "@/lib/store";
-
-export const dynamic = "force-dynamic";
+import { getPublishedProperties, getPublishedProperty } from "@/lib/store";
 
 // Only published properties are public. Seller details are never rendered here.
 async function publishedProperty(params: Promise<{ code: string }>) {
-  const property = await getPropertyByCode((await params).code.toUpperCase());
-  return property?.status === "published" ? property : undefined;
+  return getPublishedProperty((await params).code.toUpperCase());
 }
 
 export async function generateMetadata({ params }: PageProps<"/properties/[code]">): Promise<Metadata> {
@@ -30,7 +28,8 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   const p = t.property;
   const similar = similarTo(property, published);
   const sameCompound = property.compound ? published.filter((x) => x.compound === property.compound && x.id !== property.id && x.purpose === property.purpose) : [];
-  const place = property.compound ? `${property.compound}, ${property.location}` : property.location;
+  // English name for the map search, whatever the UI language.
+  const place = property.compound ? `${property.compound}, ${property.locationName.en}` : property.locationName.en;
   const skylinePhone = process.env.NEXT_PUBLIC_SKYLINE_PHONE;
   const skylineWhatsapp = process.env.NEXT_PUBLIC_SKYLINE_WHATSAPP;
 
@@ -48,7 +47,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
         <span>/</span>
         <Link href="/properties" className="hover:text-gold-deep">{t.nav.properties}</Link>
         <span>/</span>
-        <Link href={searchHref(parseSearch({}), { purpose: property.purpose, locations: [property.location] })} className="hover:text-gold-deep">{t.location[property.location]}</Link>
+        <Link href={searchHref(parseSearch({}), { purpose: property.purpose, locations: [property.location] })} className="hover:text-gold-deep">{localName(t, property.locationName)}</Link>
         {property.compound && (
           <>
             <span>/</span>
@@ -101,9 +100,9 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           {property.features.length > 0 && (
             <>
               <h2 className="mt-8 text-lg font-bold">{p.features}</h2>
-              <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
                 {property.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm">
+                  <li key={f} className="flex items-center gap-2 text-sm">
                     <CheckIcon className="text-success-deep" /> {t.feature[f as keyof typeof t.feature] ?? f}
                   </li>
                 ))}
@@ -115,7 +114,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             <div className="flex justify-between border-b border-line py-2">
               <dt className="text-cocoa">{p.location}</dt>
-              <dd className="font-medium">{t.location[property.location]}</dd>
+              <dd className="font-medium">{localName(t, property.locationName)}</dd>
             </div>
             <div className="flex justify-between border-b border-line py-2">
               <dt className="text-cocoa">{p.compound}</dt>

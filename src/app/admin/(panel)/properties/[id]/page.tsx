@@ -7,7 +7,8 @@ import { Photo, PurposeBadge, placeLabel, priceText } from "@/components/propert
 import { requestChanges } from "@/lib/actions";
 import { formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { getLeads, getProperty } from "@/lib/store";
+import { selectableLocations } from "@/lib/locations";
+import { getLeads, getLocations, getProperty } from "@/lib/store";
 
 function Field({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
   return (
@@ -21,7 +22,7 @@ function Field({ label, value, ltr }: { label: string; value: string; ltr?: bool
 }
 
 export default async function AdminPropertyPage({ params }: PageProps<"/admin/properties/[id]">) {
-  const [t, property] = await Promise.all([getDict(), getProperty((await params).id)]);
+  const [t, property, locations] = await Promise.all([getDict(), getProperty((await params).id), getLocations()]);
   if (!property) notFound();
   const a = t.admin;
 
@@ -153,7 +154,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
 
       <section className="card p-5 sm:p-8">
         <h2 className="mb-6 text-xl font-bold">{a.editProperty}</h2>
-        <EditPropertyForm property={property} />
+        <EditPropertyForm property={property} locations={selectableLocations(locations, property.location)} />
       </section>
     </div>
   );
