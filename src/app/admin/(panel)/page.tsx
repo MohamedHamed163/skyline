@@ -3,6 +3,7 @@ import { EmptyState, LeadStatusBadge, StatusBadge } from "@/components/admin-ui"
 import { priceText } from "@/components/property-card";
 import { formatDate, isToday } from "@/lib/format";
 import { getDict } from "@/lib/i18n";
+import { sellerWithType } from "@/lib/sellers";
 import { getLeads, getProperties } from "@/lib/store";
 
 export default async function AdminDashboardPage() {
@@ -51,7 +52,7 @@ export default async function AdminDashboardPage() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{p.title}</p>
                   <p className="truncate text-sm text-cocoa">
-                    {p.purpose === "rent" ? t.purposeBadge.rent : t.listing[p.listingType]} · {priceText(t, p)} · {t.seller[p.seller.type]}: {p.seller.name} ·{" "}
+                    {p.purpose === "rent" ? t.purposeBadge.rent : t.listing[p.listingType]} · {priceText(t, p)} · {sellerWithType(t, p.seller)} ·{" "}
                     {formatDate(p.createdAt, t.locale)}
                   </p>
                 </div>
@@ -74,7 +75,7 @@ export default async function AdminDashboardPage() {
               <Link key={l.id} href={`/admin/leads?q=${encodeURIComponent(l.phone)}`} className="card flex items-center justify-between gap-3 p-4 hover:border-gold">
                 <div className="min-w-0">
                   <p className="truncate font-semibold">
-                    {l.name} <span className="font-normal text-cocoa" dir="ltr">· {l.phone}</span>
+                    {l.name} <span className="font-normal text-cocoa">· <span dir="ltr">{l.phone}</span></span>
                   </p>
                   <p className="truncate text-sm text-cocoa">
                     {l.propertyCode ? `${l.propertyCode} · ${l.propertyTitle}` : a.generalInquiry} · {formatDate(l.createdAt, t.locale)}

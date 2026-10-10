@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS leads (
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'sale';
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS rent_period text;
 
+-- Admin-picked listings shown first on the home page (docs/homepage.md).
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS featured boolean NOT NULL DEFAULT false;
+
 -- Property-code counters. Sequences never hand out the same number twice.
 CREATE SEQUENCE IF NOT EXISTS property_code_premium;
 CREATE SEQUENCE IF NOT EXISTS property_code_resale;

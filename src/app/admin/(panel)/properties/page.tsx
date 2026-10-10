@@ -4,6 +4,7 @@ import { CopyCode } from "@/components/copy-button";
 import { priceText } from "@/components/property-card";
 import { formatDay } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { sellerName } from "@/lib/sellers";
 import { locationLabel, localName } from "@/lib/locations";
 import { getLocations, getProperties } from "@/lib/store";
 import { LISTING_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, PURPOSES, SELLER_TYPES } from "@/lib/types";
@@ -165,6 +166,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
                     <Link href={`/admin/properties/${p.id}`} className="font-semibold hover:text-gold-deep hover:underline">
                       {p.title}
                     </Link>
+                    {p.featured && <span className="mt-1 block text-xs font-semibold text-gold-deep">{a.onHomePage}</span>}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">{t.type[p.type]}</td>
                   <td className="whitespace-nowrap px-3 py-3">{p.purpose === "rent" ? t.purposeBadge.rent : t.listing[p.listingType]}</td>
@@ -172,7 +174,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
                   <td className="whitespace-nowrap px-3 py-3">{localName(t, p.locationName)}</td>
                   <td className="whitespace-nowrap px-3 py-3 font-semibold">{priceText(t, p)}</td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {p.seller.name}
+                    {sellerName(t, p.seller)}
                     <span className="block text-xs text-cocoa">
                       {t.seller[p.seller.type]} · <span dir="ltr">{p.seller.phone}</span>
                     </span>

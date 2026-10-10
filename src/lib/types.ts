@@ -88,7 +88,10 @@ export type Property = {
   /** Skyline Property Code, e.g. SKY-RES-0001. Assigned on first approval and never changed. */
   code: string | null;
   title: string;
+  /** Premium or resale. Set by the admin; public submissions arrive as resale. */
   listingType: ListingType;
+  /** Admin-picked: shown first in its home-page section (and its compound first in Featured projects). */
+  featured: boolean;
   /** Rentals are created by the admin only; public submissions are always "sale". */
   purpose: Purpose;
   /** Price basis for rentals (null for sale). */

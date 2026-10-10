@@ -142,7 +142,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
             <dd className="inline font-medium">{formatDate(lead.createdAt, t.locale)}</dd>
           </div>
         </dl>
-        {lead.message && <p className="mt-3 rounded-lg bg-ivory p-3 text-sm text-cocoa">“{lead.message}”</p>}
+        {lead.message && <p dir="auto" className="mt-3 whitespace-pre-line rounded-lg bg-ivory p-3 text-start text-sm text-cocoa">{lead.message}</p>}
         <div className="mt-3 flex flex-wrap gap-2">
           <a href={telHref(lead.phone)} className="btn-primary btn-sm">
             📞 {t.call}

@@ -26,6 +26,7 @@ if (count > 0) {
       code: p.code,
       title: p.title,
       listing_type: p.listingType,
+      featured: p.featured,
       type: p.type,
       location: p.location,
       compound: p.compound,

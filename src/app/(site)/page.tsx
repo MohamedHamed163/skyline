@@ -6,14 +6,15 @@ import { SearchBar } from "@/components/search-bar";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { DEFAULT_LOCATION_COVER, locationLabel } from "@/lib/locations";
-import { groupProjects, locationStats, popularLocationSearches, searchHref, parseSearch } from "@/lib/search";
+import { featuredFirst, groupProjects, locationStats, popularLocationSearches, searchHref, parseSearch } from "@/lib/search";
 import { getActiveLocations, getPublishedProperties } from "@/lib/store";
 
 export default async function HomePage() {
   const [t, all, locations] = await Promise.all([getDict(), getPublishedProperties(), getActiveLocations()]);
   const h = t.home;
   const published = all.filter((p) => p.purpose === "sale");
-  const rentals = all.filter((p) => p.purpose === "rent");
+  // Admin-featured listings lead each row (docs/homepage.md).
+  const rentals = featuredFirst(all.filter((p) => p.purpose === "rent"));
   const projects = groupProjects(published).slice(0, 4);
   const allStats = locationStats(published, locations);
   const stats = allStats.filter((s) => s.count > 0);
@@ -78,7 +79,7 @@ export default async function HomePage() {
 
       {/* Premium / resale rows */}
       {(["premium", "resale"] as const).map((listing) => {
-        const items = published.filter((p) => p.listingType === listing).slice(0, 3);
+        const items = featuredFirst(published.filter((p) => p.listingType === listing)).slice(0, 3);
         if (!items.length) return null;
         return (
           <section key={listing} className="container-page pt-16">

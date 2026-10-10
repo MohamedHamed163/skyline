@@ -12,13 +12,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AdminLoginPage() {
   if (await isAdmin()) redirect("/admin");
-  const t = (await getDict()).admin;
+  const { admin: t, siteName } = await getDict();
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="card w-full max-w-sm overflow-hidden">
         <div className="bg-espresso px-8 py-6">
-          <Image src="/brand/skyline-logo-stacked.png" alt="Skyline" width={1304} height={995} priority className="mx-auto h-28 w-auto" />
+          <Image src="/brand/skyline-logo-stacked.png" alt={siteName} width={1304} height={995} priority className="mx-auto h-28 w-auto" />
         </div>
         <div className="p-8">
         <h1 className="text-center text-xl font-bold">{t.loginTitle}</h1>

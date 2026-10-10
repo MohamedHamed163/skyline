@@ -12,10 +12,11 @@ const SELLERS: Record<string, Seller> = {
 
 // Location names live in the locations table, so seed rows only carry the location id.
 type SeedProperty = Omit<Property, "locationName">;
-type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod"> & { age: number };
+type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured"> & { age: number; featured?: boolean };
 
-const property = ({ age, ...p }: SeedInput): SeedProperty => ({
+const property = ({ age, featured = false, ...p }: SeedInput): SeedProperty => ({
   ...p,
+  featured,
   purpose: "sale",
   rentPeriod: null,
   previousStatus: p.status === "pending" ? null : "pending",
@@ -46,6 +47,7 @@ export function seedProperties(): SeedProperty[] {
       photos: ["/listings/villa-1.jpg", "/listings/apartment-3.jpg"],
       seller: SELLERS.a,
       status: "published",
+      featured: true,
       age: 9,
     }),
     property({

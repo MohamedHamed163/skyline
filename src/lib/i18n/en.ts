@@ -196,6 +196,8 @@ const en = {
     phone: "Phone number",
     whatsapp: "WhatsApp number",
     company: "Broker / company name",
+    featured: "Show on the home page",
+    featuredHint: "Puts this property first in its home-page section. If it belongs to a compound, that project also comes first under Featured projects.",
   },
   about: {
     metaTitle: "About Skyline",
@@ -222,7 +224,7 @@ const en = {
   },
   msg: {
     propertyMissing: "Please fill in the property title and seller name.",
-    propertyChoices: "Please choose the listing type, property type, location and seller type.",
+    propertyChoices: "Please choose the property type, location and seller type.",
     positiveNumbers: "Price and area must be positive numbers.",
     badPhone: "Please enter a valid phone number.",
     badWhatsapp: "Please enter a valid WhatsApp number.",
@@ -338,6 +340,8 @@ const en = {
     viewEdit: "View / Edit",
     viewPublic: "View public page",
     codeOnApproval: "Code is generated on approval",
+    onHomePage: "★ On home page",
+    notFound: "This page doesn't exist. The property may have been removed or the link is wrong.",
     sellerInfo: "Seller information",
     sellerPrivate: "Private — never shown publicly.",
     sellerType: "Type",

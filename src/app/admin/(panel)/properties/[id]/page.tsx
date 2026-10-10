@@ -7,6 +7,7 @@ import { Photo, PurposeBadge, placeLabel, priceText } from "@/components/propert
 import { requestChanges } from "@/lib/actions";
 import { formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { sellerName, sellerWithType } from "@/lib/sellers";
 import { selectableLocations } from "@/lib/locations";
 import { getLeads, getLocations, getProperty } from "@/lib/store";
 
@@ -33,7 +34,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
   const history = [
     [a.currentStatus, t.status[property.status]],
     [a.previousStatus, property.previousStatus ? t.status[property.previousStatus] : t.none],
-    [a.submittedBy, `${seller.name} (${t.seller[seller.type]})`],
+    [a.submittedBy, sellerWithType(t, seller)],
     [a.created, formatDate(property.createdAt, t.locale)],
     [a.lastUpdated, formatDate(property.updatedAt, t.locale)],
   ];
@@ -49,6 +50,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={property.status} />
             <PurposeBadge t={t} p={property} />
+            {property.featured && <span className="text-xs font-semibold text-gold-deep">{a.onHomePage}</span>}
             {property.code ? <CopyCode code={property.code} /> : <span className="text-xs text-cocoa">{a.codeOnApproval}</span>}
           </div>
           <h1 className="mt-2 text-2xl font-bold">{property.title}</h1>
@@ -87,7 +89,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           <p className="text-xs text-cocoa">{a.sellerPrivate}</p>
           <dl className="mt-3 space-y-1.5 text-sm">
             <Field label={a.sellerType} value={t.seller[seller.type]} />
-            <Field label={a.sellerName} value={seller.name} />
+            <Field label={a.sellerName} value={sellerName(t, seller)} />
             {seller.company && <Field label={a.sellerCompany} value={seller.company} />}
             <Field label={a.phone} value={seller.phone} ltr />
             <Field label={a.whatsapp} value={seller.whatsapp || t.none} ltr />
@@ -112,7 +114,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           {property.adminNotes && (
             <p className="mt-3 whitespace-pre-line rounded-lg bg-violet-50 p-3 text-sm text-violet-900">
               <span className="font-semibold">{a.internalNotes}: </span>
-              {property.adminNotes}
+              <span dir="auto">{property.adminNotes}</span>
             </p>
           )}
         </section>

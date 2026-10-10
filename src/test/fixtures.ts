@@ -17,6 +17,7 @@ export const makeProperty = (o: Partial<Property> = {}): Property => ({
   code: "SKY-RES-0001",
   title: "Sample apartment",
   listingType: "resale",
+  featured: false,
   purpose: "sale",
   rentPeriod: null,
   type: "apartment",

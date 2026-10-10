@@ -36,6 +36,8 @@ The file ends with the statements that remove the set again.
 
 ## Features
 
+- [Home page sections](docs/homepage.md): the admin sets Premium/Resale and ticks "Show on the home page" to put a property first.
+- [Admin in Arabic and English](docs/admin-language.md): right-to-left and translation rules for the dashboard.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.

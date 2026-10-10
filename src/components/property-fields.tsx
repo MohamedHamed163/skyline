@@ -13,16 +13,19 @@ import {
   type Location,
   type Property,
   type Purpose,
+  type RentPeriod,
 } from "@/lib/types";
 
 // Property + seller inputs shared by the public submission form and the admin forms.
-// admin = true unlocks the rent purpose and the "Skyline (company)" seller.
+// admin = true unlocks the rent purpose, the "Skyline (company)" seller, premium/resale and
+// "show on home page". Public submissions arrive as resale; the admin decides afterwards.
 // locations: the choices for the location field (see selectableLocations).
 export function PropertyFields({ locations, defaults, admin = false, defaultPurpose = "sale" }: { locations: Location[]; defaults?: Property; admin?: boolean; defaultPurpose?: Purpose }) {
   const t = useDict();
   const f = t.fields;
   const d = defaults;
   const [purpose, setPurpose] = useState<Purpose>(d?.purpose ?? defaultPurpose);
+  const [rentPeriod, setRentPeriod] = useState<RentPeriod>(d?.rentPeriod ?? "night");
   const [sellerType, setSellerType] = useState(d?.seller.type ?? (admin ? "company" : "broker"));
   const company = admin && sellerType === "company";
 
@@ -51,7 +54,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
             <label className="label" htmlFor="rentPeriod">
               {f.rentPeriodField}
             </label>
-            <select id="rentPeriod" name="rentPeriod" required defaultValue={d?.rentPeriod ?? "night"} className="field">
+            <select id="rentPeriod" name="rentPeriod" required value={rentPeriod} onChange={(e) => setRentPeriod(e.target.value as RentPeriod)} className="field">
               {RENT_PERIODS.map((v) => (
                 <option key={v} value={v}>
                   {t.rentPeriod[v]}
@@ -60,7 +63,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
             </select>
             <input type="hidden" name="listingType" value={d?.listingType ?? "resale"} />
           </div>
-        ) : (
+        ) : admin ? (
           <div>
             <label className="label" htmlFor="listingType">
               {f.listingType}
@@ -73,6 +76,15 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
               ))}
             </select>
           </div>
+        ) : null}
+        {admin && (
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-ivory p-4 sm:col-span-2">
+            <input type="checkbox" name="featured" defaultChecked={d?.featured} className="mt-0.5 h-5 w-5 shrink-0 accent-gold" />
+            <span>
+              <span className="block font-semibold">{f.featured}</span>
+              <span className="block text-sm text-cocoa">{f.featuredHint}</span>
+            </span>
+          </label>
         )}
         <div className="sm:col-span-2">
           <label className="label" htmlFor="title">
@@ -133,7 +145,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
         <div className="sm:col-span-2">
           <label className="label" htmlFor="price">
             {fmt(f.price, { currency: t.currency })}
-            {purpose === "rent" && <span className="font-normal text-cocoa"> — {f.rentPeriodField.toLowerCase()} {t.rentPeriod[(d?.rentPeriod ?? "night") as "night" | "month"]}</span>}
+            {purpose === "rent" && <span className="font-normal text-cocoa"> — {f.rentPeriodField.toLowerCase()} {t.rentPeriod[rentPeriod]}</span>}
           </label>
           <input id="price" name="price" type="number" min={1} required defaultValue={d?.price} className="field" />
         </div>

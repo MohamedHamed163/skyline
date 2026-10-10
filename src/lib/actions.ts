@@ -9,6 +9,7 @@ import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
 import { uploadPhotos } from "./photos";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
+import { COMPANY_DEFAULT_NAME } from "./sellers";
 import * as store from "./store";
 import { validEmail, validPhone } from "./validation";
 import {
@@ -36,13 +37,14 @@ const MAX_PHOTO_CHARS = 900_000; // ~650 KB per photo once base64-decoded
 const text = (fd: FormData, key: string, max = 200) =>
   String(fd.get(key) ?? "").trim().slice(0, max);
 
-// admin = true allows rentals and a "company" seller (no phone needed). Public submissions are sale-only.
+// admin = true allows rentals, a "company" seller (no phone needed), and sets premium/resale and
+// "show on home page". Public submissions are sale-only, arrive as resale and are never featured.
 async function parseProperty(fd: FormData, admin = false): Promise<{ error: string } | { data: store.PropertyInput }> {
   const t = (await getDict()).msg;
   const purpose = (admin ? (text(fd, "purpose") as Purpose) : "sale") satisfies Purpose;
   const rentPeriod = text(fd, "rentPeriod") as RentPeriod;
   const title = text(fd, "title", 120);
-  const listingType = text(fd, "listingType") as ListingType;
+  const listingType = (admin ? text(fd, "listingType") : "resale") as ListingType;
   const type = text(fd, "type") as PropertyType;
   const location = text(fd, "location");
   const price = Number(fd.get("price"));
@@ -82,6 +84,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     data: {
       title,
       listingType,
+      featured: admin && fd.get("featured") === "on",
       purpose,
       rentPeriod: purpose === "rent" ? rentPeriod : null,
       type,
@@ -95,7 +98,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       features: fd.getAll("features").map(String).filter((f) => (FEATURES as readonly string[]).includes(f)),
       seller: {
         type: sellerType,
-        name: sellerName || (company ? "Skyline" : ""),
+        name: sellerName || (company ? COMPANY_DEFAULT_NAME : ""),
         phone: sellerPhone,
         whatsapp: sellerWhatsapp,
         company: text(fd, "sellerCompany", 80),

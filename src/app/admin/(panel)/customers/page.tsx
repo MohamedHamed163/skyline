@@ -45,9 +45,15 @@ export default async function AdminCustomersPage() {
                 return (
                   <tr key={latest.id} className="hover:bg-ivory/60">
                     <td className="whitespace-nowrap px-4 py-3 font-semibold">{latest.name}</td>
-                    <td className="whitespace-nowrap px-4 py-3" dir="ltr">{latest.phone}</td>
-                    <td className="whitespace-nowrap px-4 py-3" dir="ltr">{whatsapp || t.none}</td>
-                    <td className="whitespace-nowrap px-4 py-3" dir="ltr">{leads.find((l) => l.email)?.email ?? t.none}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span dir="ltr">{latest.phone}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span dir="ltr">{whatsapp || t.none}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span dir="ltr">{leads.find((l) => l.email)?.email ?? t.none}</span>
+                    </td>
                     <td className="px-4 py-3">
                       <Link href={`/admin/leads?q=${encodeURIComponent(latest.phone)}`} className="font-semibold text-gold-deep hover:underline">
                         {leads.length}

@@ -175,6 +175,8 @@ export type Project = {
   location: string;
   locationName: LocationName;
   listingType: ListingType;
+  /** At least one of its properties is shown on the home page by the admin. */
+  featured: boolean;
   properties: Property[];
   cover: string;
   minPrice: number;
@@ -184,6 +186,11 @@ export type Project = {
 
 export const projectSlug = (compound: string) => encodeURIComponent(compound.trim().toLowerCase().replace(/\s+/g, "-"));
 
+/** Admin-featured items first; otherwise keeps the incoming order (newest first for properties). */
+export const featuredFirst = <T extends { featured: boolean }>(items: T[]): T[] =>
+  [...items].sort((a, b) => Number(b.featured) - Number(a.featured));
+
+/** Compounds as projects: featured ones first, then the ones with the most listings. */
 export function groupProjects(published: Property[]): Project[] {
   const map = new Map<string, Property[]>();
   for (const p of published) {
@@ -199,6 +206,7 @@ export function groupProjects(published: Property[]): Project[] {
         location: properties[0].location,
         locationName: properties[0].locationName,
         listingType: premium * 2 >= properties.length ? "premium" : "resale",
+        featured: properties.some((p) => p.featured),
         properties,
         cover: properties[0].photos[0],
         minPrice: Math.min(...properties.map((p) => p.price)),
@@ -206,7 +214,7 @@ export function groupProjects(published: Property[]): Project[] {
         types: [...new Set(properties.map((p) => p.type))],
       } satisfies Project;
     })
-    .sort((a, b) => b.properties.length - a.properties.length);
+    .sort((a, b) => Number(b.featured) - Number(a.featured) || b.properties.length - a.properties.length);
 }
 
 /** Properties that are close to the given one: same compound first, then same location & type. */

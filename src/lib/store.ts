@@ -18,6 +18,7 @@ const toProperty = (r: Row): Property => ({
   code: r.code as string | null,
   title: r.title as string,
   listingType: r.listing_type as Property["listingType"],
+  featured: Boolean(r.featured),
   purpose: (r.purpose as Property["purpose"]) ?? "sale",
   rentPeriod: (r.rent_period as Property["rentPeriod"]) ?? null,
   type: r.type as Property["type"],
@@ -115,6 +116,7 @@ export type PropertyInput = Omit<
 const propertyColumns = (p: PropertyInput) => ({
   title: p.title,
   listing_type: p.listingType,
+  featured: p.featured,
   purpose: p.purpose,
   rent_period: p.purpose === "rent" ? p.rentPeriod : null,
   type: p.type,

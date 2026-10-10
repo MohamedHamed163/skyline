@@ -10,6 +10,7 @@ const store = vi.hoisted(() => ({
   updateLocation: vi.fn(),
   setLocationArchived: vi.fn(),
   createProperty: vi.fn(),
+  updateProperty: vi.fn(),
 }));
 const auth = vi.hoisted(() => ({ isAdmin: vi.fn() }));
 const photos = vi.hoisted(() => ({ uploadPhotos: vi.fn() }));
@@ -27,7 +28,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
 vi.mock("next/navigation", () => nav);
 
-const { createLocation, setLocationArchived, submitProperty, updateLocation } = await import("./actions");
+const { createLocation, setLocationArchived, submitProperty, updateLocation, updateProperty } = await import("./actions");
 
 const form = (fields: Record<string, string | string[]>) => {
   const fd = new FormData();
@@ -163,5 +164,43 @@ describe("submitProperty location rules", () => {
   it("rejects an unknown location", async () => {
     expect(await submitProperty(null, property("atlantis"))).toEqual({ ok: false, message: en.msg.propertyChoices });
     expect(store.createProperty).not.toHaveBeenCalled();
+  });
+});
+
+describe("listing type and home page (admin-only)", () => {
+  const fields = {
+    title: "Nice flat",
+    type: "apartment",
+    location: "new-cairo",
+    price: "1000000",
+    area: "100",
+    bedrooms: "2",
+    bathrooms: "1",
+    sellerType: "owner",
+    sellerName: "Owner",
+    sellerPhone: "+20 100 000 0000",
+  };
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("ignores premium and featured on public submissions", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "premium", featured: "on", photos: JPEG })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ listingType: "resale", featured: false }));
+  });
+
+  it("lets the admin set premium and show on the home page", async () => {
+    const result = await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "premium", featured: "on" }));
+    expect(result).toEqual({ ok: true, message: en.msg.saved });
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ listingType: "premium", featured: true }));
+  });
+
+  it("removes a property from the home page when the box is unticked", async () => {
+    await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "resale" }));
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ featured: false }));
+  });
+
+  it("rejects an unknown listing type from the admin", async () => {
+    expect(await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "gold" }))).toEqual({ ok: false, message: en.msg.propertyChoices });
+    expect(store.updateProperty).not.toHaveBeenCalled();
   });
 });

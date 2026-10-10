@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeLocation, makeProperty } from "@/test/fixtures";
-import { applySearch, groupProjects, locationStats, parseSearch, placeLinks, popularLocationSearches, searchHref, sortHrefs } from "./search";
+import { applySearch, featuredFirst, groupProjects, locationStats, parseSearch, placeLinks, popularLocationSearches, searchHref, sortHrefs } from "./search";
 
 const newCairo = makeLocation();
 const giza = makeLocation({ id: "giza", nameEn: "Giza", nameAr: "الجيزة" });
@@ -82,6 +82,30 @@ describe("groupProjects", () => {
     const [project] = groupProjects([makeProperty({ compound: "Palm Hills", location: "giza", locationName: gizaName })]);
     expect(project.location).toBe("giza");
     expect(project.locationName).toEqual(gizaName);
+  });
+
+  it("puts projects with a featured property first, then the biggest", () => {
+    const projects = groupProjects([
+      makeProperty({ id: "a1", compound: "Big" }),
+      makeProperty({ id: "a2", compound: "Big" }),
+      makeProperty({ id: "a3", compound: "Big" }),
+      makeProperty({ id: "b1", compound: "Small" }),
+      makeProperty({ id: "c1", compound: "Pinned", featured: true }),
+      makeProperty({ id: "c2", compound: "Pinned" }),
+    ]);
+    expect(projects.map((p) => [p.compound, p.featured])).toEqual([
+      ["Pinned", true],
+      ["Big", false],
+      ["Small", false],
+    ]);
+  });
+});
+
+describe("featuredFirst", () => {
+  it("moves featured items to the front and keeps the order otherwise", () => {
+    const items = ["new", "pinned-old", "mid", "pinned-older"].map((id) => makeProperty({ id, featured: id.startsWith("pinned") }));
+    expect(featuredFirst(items).map((p) => p.id)).toEqual(["pinned-old", "pinned-older", "new", "mid"]);
+    expect(items[0].id).toBe("new");
   });
 });
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/admin-ui";
 import { intlDigits, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
+import { sellerName } from "@/lib/sellers";
 import { getProperties } from "@/lib/store";
 import type { Property, Seller } from "@/lib/types";
 
@@ -43,10 +44,12 @@ export default async function AdminSellersPage() {
             <tbody className="divide-y divide-line">
               {sellers.map(({ seller, properties: list }) => (
                 <tr key={seller.phone} className="hover:bg-ivory/60">
-                  <td className="whitespace-nowrap px-4 py-3 font-semibold">{seller.name}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold">{sellerName(t, seller)}</td>
                   <td className="px-4 py-3">{t.seller[seller.type]}</td>
                   <td className="whitespace-nowrap px-4 py-3">{seller.company || t.none}</td>
-                  <td className="whitespace-nowrap px-4 py-3" dir="ltr">{seller.phone}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span dir="ltr">{seller.phone}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <Link href={`/admin/properties?q=${encodeURIComponent(seller.phone)}`} className="font-semibold text-gold-deep hover:underline">
                       {list.length}
