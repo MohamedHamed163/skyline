@@ -224,3 +224,15 @@ export function similarTo(property: Property, published: Property[], limit = 3) 
     .slice(0, limit)
     .map((x) => x.p);
 }
+
+/**
+ * Where a property's location details link to: the search for its location, and its project page
+ * when it is in a compound (`project` is null otherwise, so the page can hide that row).
+ */
+export function placeLinks(property: Pick<Property, "purpose" | "location" | "compound">) {
+  const compound = property.compound.trim();
+  return {
+    location: searchHref(parseSearch({}), { purpose: property.purpose, locations: [property.location] }),
+    project: compound ? `/projects/${projectSlug(compound)}` : null,
+  };
+}

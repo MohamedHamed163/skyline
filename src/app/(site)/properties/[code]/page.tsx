@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Gallery } from "@/components/gallery";
-import { AreaIcon, BathIcon, BedIcon, BuildingIcon, CheckIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/icons";
+import { AreaIcon, BathIcon, BedIcon, BuildingIcon, CheckIcon, ChevronIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { PropertyCard, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { ShareButton } from "@/components/share-button";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
-import { avgPricePerSqm, projectSlug, searchHref, parseSearch, similarTo } from "@/lib/search";
+import { avgPricePerSqm, placeLinks, similarTo } from "@/lib/search";
 import { getPublishedProperties, getPublishedProperty } from "@/lib/store";
 
 // Only published properties are public. Seller details are never rendered here.
@@ -27,6 +28,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   if (!property) notFound();
   const p = t.property;
   const similar = similarTo(property, published);
+  const links = placeLinks(property);
   const sameCompound = property.compound ? published.filter((x) => x.compound === property.compound && x.id !== property.id && x.purpose === property.purpose) : [];
   // English name for the map search, whatever the UI language.
   const place = property.compound ? `${property.compound}, ${property.locationName.en}` : property.locationName.en;
@@ -47,11 +49,11 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
         <span>/</span>
         <Link href="/properties" className="hover:text-gold-deep">{t.nav.properties}</Link>
         <span>/</span>
-        <Link href={searchHref(parseSearch({}), { purpose: property.purpose, locations: [property.location] })} className="hover:text-gold-deep">{localName(t, property.locationName)}</Link>
-        {property.compound && (
+        <Link href={links.location} className="hover:text-gold-deep">{localName(t, property.locationName)}</Link>
+        {links.project && (
           <>
             <span>/</span>
-            <Link href={`/projects/${projectSlug(property.compound)}`} className="hover:text-gold-deep">{property.compound}</Link>
+            <Link href={links.project} className="hover:text-gold-deep">{property.compound}</Link>
           </>
         )}
         <span>/</span>
@@ -111,15 +113,10 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           )}
 
           <h2 className="mt-8 text-lg font-bold">{p.locationSection}</h2>
-          <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-            <div className="flex justify-between border-b border-line py-2">
-              <dt className="text-cocoa">{p.location}</dt>
-              <dd className="font-medium">{localName(t, property.locationName)}</dd>
-            </div>
-            <div className="flex justify-between border-b border-line py-2">
-              <dt className="text-cocoa">{p.compound}</dt>
-              <dd className="font-medium">{property.compound || t.none}</dd>
-            </div>
+          {/* Label above value; values link to the location search and the project page. Compound is optional, so it is hidden when empty. */}
+          <dl className="mt-3 flex flex-wrap gap-x-10 gap-y-4 text-sm">
+            <PlaceLink icon={<PinIcon />} label={p.location} href={links.location} value={localName(t, property.locationName)} />
+            {links.project && <PlaceLink icon={<BuildingIcon />} label={p.compound} href={links.project} value={property.compound} />}
           </dl>
           <div className="mt-3 overflow-hidden rounded-2xl border border-line">
             <iframe
@@ -153,11 +150,11 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
         </aside>
       </div>
 
-      {sameCompound.length > 0 && (
+      {links.project && sameCompound.length > 0 && (
         <section className="mt-14">
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
             <h2 className="text-2xl font-bold">{fmt(p.moreIn, { compound: property.compound })}</h2>
-            <Link href={`/projects/${projectSlug(property.compound)}`} className="text-sm font-semibold text-gold-deep hover:underline">
+            <Link href={links.project} className="text-sm font-semibold text-gold-deep hover:underline">
               {t.project.view} · {fmt(t.filters.avgSqm, { price: formatPrice(avgPricePerSqm(sameCompound), t.currency) })}
             </Link>
           </div>
@@ -175,6 +172,23 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function PlaceLink({ icon, label, href, value }: { icon: ReactNode; label: string; href: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold/15 text-gold-deep">{icon}</span>
+      <div>
+        <dt className="text-xs text-cocoa">{label}</dt>
+        <dd>
+          <Link href={href} className="group inline-flex items-center gap-1 font-semibold text-gold-deep hover:underline underline-offset-4">
+            {value}
+            <ChevronIcon className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
+          </Link>
+        </dd>
+      </div>
     </div>
   );
 }

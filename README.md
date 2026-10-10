@@ -37,6 +37,7 @@ The file ends with the statements that remove the set again.
 ## Features
 
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
+- [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.
 
 ## Caching

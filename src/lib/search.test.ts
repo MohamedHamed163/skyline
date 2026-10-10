@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeLocation, makeProperty } from "@/test/fixtures";
-import { applySearch, groupProjects, locationStats, parseSearch, popularLocationSearches, searchHref, sortHrefs } from "./search";
+import { applySearch, groupProjects, locationStats, parseSearch, placeLinks, popularLocationSearches, searchHref, sortHrefs } from "./search";
 
 const newCairo = makeLocation();
 const giza = makeLocation({ id: "giza", nameEn: "Giza", nameAr: "الجيزة" });
@@ -101,5 +101,23 @@ describe("sortHrefs", () => {
 
   it("drops the sort param for the default order", () => {
     expect(sortHrefs(parseSearch({ sort: "price_desc", purpose: "rent" })).newest).toBe("/properties?purpose=rent");
+  });
+});
+
+describe("placeLinks", () => {
+  it("links the location to its search, keeping the purpose", () => {
+    const { location } = placeLinks(makeProperty({ purpose: "rent", location: "giza", compound: "" }));
+    const params = new URL(location, "http://x").searchParams;
+    expect(params.get("location")).toBe("giza");
+    expect(params.get("purpose")).toBe("rent");
+  });
+
+  it("links the compound to its project page", () => {
+    expect(placeLinks(makeProperty({ compound: "Palm Hills" })).project).toBe("/projects/palm-hills");
+  });
+
+  it("has no project link when there is no compound", () => {
+    expect(placeLinks(makeProperty({ compound: "" })).project).toBeNull();
+    expect(placeLinks(makeProperty({ compound: "   " })).project).toBeNull();
   });
 });
