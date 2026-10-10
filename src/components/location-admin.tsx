@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { ActionForm } from "@/components/action-form";
 import { createLocation, setLocationArchived, updateLocation } from "@/lib/actions";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { toJpegDataUrl } from "@/lib/jpeg";
 import { DEFAULT_LOCATION_COVER, locationLabel } from "@/lib/locations";
+import { withFailureMessage } from "@/lib/safe-action";
 import type { FormState, Location } from "@/lib/types";
 
 // Admin forms for /admin/locations. Without `location` the form adds a new one.
@@ -16,11 +18,15 @@ export function LocationForm({ location }: { location?: Location }) {
   const [photoError, setPhotoError] = useState("");
   const shown = cover || (removeCover ? "" : location?.cover);
   const prefix = location ? `loc-${location.id}` : "loc-new";
+  const form = useRef<HTMLFormElement>(null);
+  const [, startTransition] = useTransition();
+  const save = withFailureMessage((prev: FormState, fd: FormData) => (location ? updateLocation(location.id, prev, fd) : createLocation(prev, fd)), t.msg.requestFailed);
   const [state, action, pending] = useActionState(async (prev: FormState, fd: FormData) => {
-    const result = location ? await updateLocation(location.id, prev, fd) : await createLocation(prev, fd);
+    const result = await save(prev, fd);
     if (result?.ok) {
       setCover("");
       setRemoveCover(false);
+      if (!location) form.current?.reset(); // clear the "add" form only once it has been added
     }
     return result;
   }, null);
@@ -37,11 +43,15 @@ export function LocationForm({ location }: { location?: Location }) {
   }
 
   return (
+    // Submitted from onSubmit (not <form action>) so a failed save keeps what was typed.
     <form
-      action={(fd) => {
+      ref={form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
         if (cover) fd.set("cover", cover);
         if (removeCover) fd.set("removeCover", "on");
-        action(fd);
+        startTransition(() => action(fd));
       }}
       className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
     >
@@ -111,15 +121,10 @@ export function LocationArchiveButton({ location, count }: { location: Location;
   const l = t.admin.locations;
   const hide = !location.archived;
   return (
-    <form
-      action={setLocationArchived.bind(null, location.id, hide)}
-      onSubmit={(e) => {
-        if (hide && !window.confirm(fmt(l.hideConfirm, { name: locationLabel(t, location), n: count }))) e.preventDefault();
-      }}
-    >
+    <ActionForm action={setLocationArchived.bind(null, location.id, hide)} confirm={hide ? fmt(l.hideConfirm, { name: locationLabel(t, location), n: count }) : undefined}>
       <button type="submit" className={`btn-outline btn-sm whitespace-nowrap ${hide ? "hover:border-red-400 hover:text-red-600" : ""}`}>
         {hide ? l.hide : l.restore}
       </button>
-    </form>
+    </ActionForm>
   );
 }

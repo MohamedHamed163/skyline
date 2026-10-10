@@ -40,7 +40,7 @@ The file ends with the statements that remove the set again.
 - [Admin in Arabic and English](docs/admin-language.md): right-to-left and translation rules for the dashboard.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
-- [Property form](docs/property-form.md): digits-only numeric fields with live range checks, failed saves that keep the form, and the dropdown chevron.
+- [Forms](docs/forms.md): digits-only numeric fields with live range checks, failed requests that never clear a form or crash the page, and the dropdown chevron.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.
 
 ## Caching

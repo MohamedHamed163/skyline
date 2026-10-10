@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ActionForm } from "@/components/action-form";
 import { CopyCode } from "@/components/copy-button";
 import { setPropertyStatus, updateLead } from "@/lib/actions";
 import { formatDate, telHref, whatsappHref } from "@/lib/format";
@@ -85,11 +86,11 @@ export function StatusActions({ property }: { property: Property }) {
   return (
     <div className="flex flex-wrap gap-2">
       {NEXT_ACTIONS[property.status].map((a) => (
-        <form key={a.status} action={setPropertyStatus.bind(null, property.id, a.status)}>
+        <ActionForm key={a.status} action={setPropertyStatus.bind(null, property.id, a.status)}>
           <button type="submit" className={`whitespace-nowrap ${ACTION_STYLES[a.style]}`}>
             {t[a.label]}
           </button>
-        </form>
+        </ActionForm>
       ))}
     </div>
   );
@@ -153,7 +154,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
         </div>
       </div>
 
-      <form action={updateLead.bind(null, lead.id)} className="space-y-2">
+      <ActionForm action={updateLead.bind(null, lead.id)} className="space-y-2">
         <label className="label" htmlFor={`status-${lead.id}`}>
           {a.leadStatus}
         </label>
@@ -171,7 +172,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
         <button type="submit" className="btn-dark btn-sm w-full">
           {t.save}
         </button>
-      </form>
+      </ActionForm>
     </article>
   );
 }

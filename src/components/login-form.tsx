@@ -1,15 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
 import { adminLogin } from "@/lib/actions";
 import { useDict } from "@/lib/i18n/client";
+import { withFailureMessage } from "@/lib/safe-action";
 
 export function LoginForm() {
-  const t = useDict().admin;
-  const [state, action, pending] = useActionState(adminLogin, null);
+  const dict = useDict();
+  const t = dict.admin;
+  const [state, action, pending] = useActionState(withFailureMessage(adminLogin, dict.msg.requestFailed), null);
+  const [, startTransition] = useTransition();
 
   return (
-    <form action={action} className="space-y-4">
+    // onSubmit (not <form action>) so a failed attempt doesn't clear the field.
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="space-y-4"
+    >
       <div>
         <label className="label" htmlFor="password">
           {t.password}

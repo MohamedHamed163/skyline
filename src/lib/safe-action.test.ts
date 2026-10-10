@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { withFailureMessage } = await import("./safe-action");
+const { succeeded, withFailureMessage } = await import("./safe-action");
 
 describe("withFailureMessage", () => {
   const fd = new FormData();
@@ -31,5 +31,28 @@ describe("withFailureMessage", () => {
       throw new Error("NEXT_REDIRECT;/admin/properties/p1");
     });
     await expect(withFailureMessage(action, "Offline")(null, fd)).rejects.toThrow("NEXT_REDIRECT");
+  });
+});
+
+describe("succeeded", () => {
+  it("is true when the action finishes", async () => {
+    expect(await succeeded(async () => undefined)).toBe(true);
+  });
+
+  it("is false when the request fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(
+      await succeeded(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    ).toBe(false);
+  });
+
+  it("re-throws redirects (e.g. logout)", async () => {
+    await expect(
+      succeeded(async () => {
+        throw new Error("NEXT_REDIRECT;/admin/login");
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
   });
 });

@@ -232,6 +232,7 @@ const en = {
     propertyMissing: "Please fill in the property title and seller name.",
     propertyChoices: "Please choose the property type, location and seller type.",
     numberRange: "{field} must be a whole number from {min} to {max}.",
+    actionFailed: "Couldn't reach the server. Check your connection and try again.",
     requestFailed: "We couldn't reach the server. Check your connection and try again — your details are still here.",
     badPhone: "Please enter a valid phone number.",
     badWhatsapp: "Please enter a valid WhatsApp number.",

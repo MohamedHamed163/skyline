@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { ActionForm } from "@/components/action-form";
 import { LanguageSwitch } from "@/components/language-switch";
 import { NavMenu } from "@/components/nav-link";
 import { Logo } from "@/components/site-chrome";
@@ -41,11 +42,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Logo href="/admin" />
           <div className="flex items-center gap-2 lg:hidden">
             <LanguageSwitch dark />
-            <form action={adminLogout}>
+            <ActionForm action={adminLogout} errorClassName="text-error">
               <button type="submit" className="btn btn-sm border border-cream/30 text-cream hover:border-gold">
                 {t.admin.logout}
               </button>
-            </form>
+            </ActionForm>
           </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 text-sm font-medium lg:flex-col lg:px-3">
@@ -66,11 +67,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           />
           <div className="mt-2 hidden space-y-2 border-t border-white/10 pt-3 lg:block">
             <LanguageSwitch className="px-3" dark />
-            <form action={adminLogout}>
+            <ActionForm action={adminLogout} errorClassName="text-error">
               <button type="submit" className="w-full cursor-pointer rounded-lg px-3 py-2 text-start hover:bg-white/10 hover:text-error">
                 {t.admin.logout}
               </button>
-            </form>
+            </ActionForm>
           </div>
         </nav>
       </aside>

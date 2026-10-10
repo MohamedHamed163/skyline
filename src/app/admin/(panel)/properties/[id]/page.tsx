@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ActionForm } from "@/components/action-form";
 import { LeadStatusBadge, StatusActions, StatusBadge } from "@/components/admin-ui";
 import { CopyCode } from "@/components/copy-button";
 import { EditPropertyForm } from "@/components/edit-property-form";
@@ -122,12 +123,12 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
         <section className="card p-5">
           <h2 className="font-bold">{a.requestChanges}</h2>
           {canRequestChanges ? (
-            <form action={requestChanges.bind(null, property.id)} className="mt-3 space-y-3">
+            <ActionForm action={requestChanges.bind(null, property.id)} className="mt-3 space-y-3">
               <textarea name="adminNotes" rows={3} maxLength={2000} defaultValue={property.adminNotes} placeholder={a.requestChangesPlaceholder} aria-label={a.internalNotes} className="field" />
               <button type="submit" className="btn-outline btn-sm">
                 {a.markNeedsChanges}
               </button>
-            </form>
+            </ActionForm>
           ) : (
             <p className="mt-3 text-sm text-cocoa">{a.requestChangesHint}</p>
           )}

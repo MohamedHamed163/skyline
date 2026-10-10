@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState, useSyncExternalStore } from "react";
+import { useActionState, useState, useSyncExternalStore, useTransition } from "react";
 import { submitLead } from "@/lib/actions";
 import { useDict } from "@/lib/i18n/client";
+import { withFailureMessage } from "@/lib/safe-action";
 import { validEmail, validPhone } from "@/lib/validation";
 
 type Field = "name" | "phone" | "whatsapp" | "email" | "message";
@@ -16,9 +17,10 @@ function subscribeHash(onChange: () => void) {
 // Short lead form. When propertyId is set the request is tied to that property automatically.
 export function LeadForm({ propertyId, startOpen = false }: { propertyId?: string; startOpen?: boolean }) {
   const t = useDict();
-  const [state, action, pending] = useActionState(submitLead, null);
+  const [state, action, pending] = useActionState(withFailureMessage(submitLead, t.msg.requestFailed), null);
+  const [, startTransition] = useTransition();
   const [clicked, setOpen] = useState(startOpen);
-  // Controlled values survive React's form reset, so a server-side error doesn't wipe what was typed.
+  // Controlled, and submitted from onSubmit (not <form action>), so a failed send keeps what was typed.
   const [values, setValues] = useState(EMPTY);
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
   // "Request details" links land on #request: open the form straight away.
@@ -76,7 +78,14 @@ export function LeadForm({ propertyId, startOpen = false }: { propertyId?: strin
     ) : null;
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="space-y-4"
+    >
       {propertyId && <input type="hidden" name="propertyId" value={propertyId} />}
       <div>
         <label className="label" htmlFor="lead-name">
