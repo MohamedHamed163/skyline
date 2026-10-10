@@ -25,7 +25,7 @@ export function SortSelect({ label, value, options, hrefs }: { label: string; va
           value={value}
           disabled={pending}
           onChange={(e) => startTransition(() => router.push(hrefs[e.target.value as Sort], { scroll: false }))}
-          className="field w-auto cursor-pointer appearance-none py-1.5 pe-9 [field-sizing:content] disabled:cursor-wait disabled:opacity-70"
+          className="field w-auto cursor-pointer appearance-none bg-none py-1.5 pe-9 [field-sizing:content] disabled:cursor-wait disabled:opacity-70"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>

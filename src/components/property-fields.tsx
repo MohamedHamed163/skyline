@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { fmt, useDict } from "@/lib/i18n/client";
+import { NumberField } from "@/components/number-field";
 import { locationLabel } from "@/lib/locations";
+import { PROPERTY_LIMITS } from "@/lib/validation";
 import {
   FEATURES,
   LISTING_TYPES,
@@ -127,19 +129,19 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
             <label className="label" htmlFor="area">
               {f.area}
             </label>
-            <input id="area" name="area" type="number" min={1} required defaultValue={d?.area} className="field" />
+            <NumberField id="area" name="area" limits={PROPERTY_LIMITS.area} grouped defaultValue={d?.area} />
           </div>
           <div>
             <label className="label" htmlFor="bedrooms">
               {f.bedrooms}
             </label>
-            <input id="bedrooms" name="bedrooms" type="number" min={0} max={50} required defaultValue={d?.bedrooms} className="field" />
+            <NumberField id="bedrooms" name="bedrooms" limits={PROPERTY_LIMITS.bedrooms} defaultValue={d?.bedrooms} />
           </div>
           <div>
             <label className="label" htmlFor="bathrooms">
               {f.bathrooms}
             </label>
-            <input id="bathrooms" name="bathrooms" type="number" min={0} max={50} required defaultValue={d?.bathrooms} className="field" />
+            <NumberField id="bathrooms" name="bathrooms" limits={PROPERTY_LIMITS.bathrooms} defaultValue={d?.bathrooms} />
           </div>
         </div>
         <div className="sm:col-span-2">
@@ -147,7 +149,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
             {fmt(f.price, { currency: t.currency })}
             {purpose === "rent" && <span className="font-normal text-cocoa"> — {f.rentPeriodField.toLowerCase()} {t.rentPeriod[rentPeriod]}</span>}
           </label>
-          <input id="price" name="price" type="number" min={1} required defaultValue={d?.price} className="field" />
+          <NumberField id="price" name="price" limits={PROPERTY_LIMITS.price} grouped defaultValue={d?.price} />
         </div>
         <div className="sm:col-span-2">
           <label className="label" htmlFor="description">

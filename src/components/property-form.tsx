@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { PropertyFields } from "@/components/property-fields";
 import { createPropertyAdmin, submitProperty } from "@/lib/actions";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { toJpegDataUrl } from "@/lib/jpeg";
+import { withFailureMessage } from "@/lib/safe-action";
 import type { Location, Purpose } from "@/lib/types";
 
 const MAX_PHOTOS = 6;
@@ -14,7 +15,8 @@ const MAX_PHOTOS = 6;
 export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mode: "public" | "admin"; locations: Location[]; defaultPurpose?: Purpose }) {
   const t = useDict();
   const admin = mode === "admin";
-  const [state, action, pending] = useActionState(admin ? createPropertyAdmin : submitProperty, null);
+  const [state, action, pending] = useActionState(withFailureMessage(admin ? createPropertyAdmin : submitProperty, t.msg.requestFailed), null);
+  const [, startTransition] = useTransition();
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState("");
 
@@ -45,10 +47,14 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mod
   }
 
   return (
+    // Submitted from onSubmit rather than <form action>: React resets a form after its action
+    // runs, which would wipe everything the user typed when the save fails.
     <form
-      action={(fd) => {
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
         photos.forEach((p) => fd.append("photos", p));
-        action(fd);
+        startTransition(() => action(fd));
       }}
       className="space-y-8"
     >

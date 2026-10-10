@@ -197,6 +197,12 @@ const en = {
     whatsapp: "WhatsApp number",
     company: "Broker / company name",
     featured: "Show on the home page",
+    errors: {
+      required: "This field is required.",
+      notNumber: "Enter numbers only.",
+      tooSmall: "Must be at least {min}.",
+      tooLarge: "Must be {max} or less.",
+    },
     featuredHint: "Puts this property first in its home-page section. If it belongs to a compound, that project also comes first under Featured projects.",
   },
   about: {
@@ -225,7 +231,8 @@ const en = {
   msg: {
     propertyMissing: "Please fill in the property title and seller name.",
     propertyChoices: "Please choose the property type, location and seller type.",
-    positiveNumbers: "Price and area must be positive numbers.",
+    numberRange: "{field} must be a whole number from {min} to {max}.",
+    requestFailed: "We couldn't reach the server. Check your connection and try again — your details are still here.",
     badPhone: "Please enter a valid phone number.",
     badWhatsapp: "Please enter a valid WhatsApp number.",
     badEmail: "Please enter a valid email.",

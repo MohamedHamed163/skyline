@@ -11,7 +11,7 @@ import { uploadPhotos } from "./photos";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
 import { COMPANY_DEFAULT_NAME } from "./sellers";
 import * as store from "./store";
-import { validEmail, validPhone } from "./validation";
+import { checkWholeNumber, groupDigits, PROPERTY_LIMITS, validEmail, validPhone } from "./validation";
 import {
   FEATURES,
   LEAD_STATUSES,
@@ -40,17 +40,14 @@ const text = (fd: FormData, key: string, max = 200) =>
 // admin = true allows rentals, a "company" seller (no phone needed), and sets premium/resale and
 // "show on home page". Public submissions are sale-only, arrive as resale and are never featured.
 async function parseProperty(fd: FormData, admin = false): Promise<{ error: string } | { data: store.PropertyInput }> {
-  const t = (await getDict()).msg;
+  const dict = await getDict();
+  const t = dict.msg;
   const purpose = (admin ? (text(fd, "purpose") as Purpose) : "sale") satisfies Purpose;
   const rentPeriod = text(fd, "rentPeriod") as RentPeriod;
   const title = text(fd, "title", 120);
   const listingType = (admin ? text(fd, "listingType") : "resale") as ListingType;
   const type = text(fd, "type") as PropertyType;
   const location = text(fd, "location");
-  const price = Number(fd.get("price"));
-  const area = Number(fd.get("area"));
-  const bedrooms = Number(fd.get("bedrooms"));
-  const bathrooms = Number(fd.get("bathrooms"));
   const sellerType = text(fd, "sellerType") as SellerType;
   const sellerName = text(fd, "sellerName", 80);
   const sellerPhone = text(fd, "sellerPhone", 20);
@@ -72,8 +69,16 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
   ) {
     return { error: t.propertyChoices };
   }
-  if (!(price > 0) || !(area > 0) || !(bedrooms >= 0) || !(bathrooms >= 0)) {
-    return { error: t.positiveNumbers };
+  // Same ranges the form's NumberFields enforce while typing.
+  const labels = { price: fmt(dict.fields.price, { currency: dict.currency }), area: dict.fields.area, bedrooms: dict.fields.bedrooms, bathrooms: dict.fields.bathrooms };
+  const numbers = { price: 0, area: 0, bedrooms: 0, bathrooms: 0 };
+  for (const key of Object.keys(numbers) as (keyof typeof numbers)[]) {
+    const { min, max } = PROPERTY_LIMITS[key];
+    const raw = text(fd, key);
+    if (checkWholeNumber(raw, PROPERTY_LIMITS[key])) {
+      return { error: fmt(t.numberRange, { field: labels[key], min: groupDigits(String(min)), max: groupDigits(String(max)) }) };
+    }
+    numbers[key] = Number(raw);
   }
   if (!validPhone(sellerPhone) && !(company && !sellerPhone)) return { error: t.badPhone };
   if (sellerWhatsapp && !validPhone(sellerWhatsapp)) {
@@ -90,10 +95,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       type,
       location,
       compound: text(fd, "compound", 80),
-      area,
-      bedrooms,
-      bathrooms,
-      price,
+      ...numbers,
       description: text(fd, "description", 2000),
       features: fd.getAll("features").map(String).filter((f) => (FEATURES as readonly string[]).includes(f)),
       seller: {

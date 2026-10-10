@@ -167,6 +167,51 @@ describe("submitProperty location rules", () => {
   });
 });
 
+describe("numeric property limits", () => {
+  const property = (numbers: Record<string, string>) =>
+    form({
+      title: "Nice flat",
+      type: "apartment",
+      location: "new-cairo",
+      price: "1000000",
+      area: "100",
+      bedrooms: "2",
+      bathrooms: "1",
+      sellerType: "owner",
+      sellerName: "Owner",
+      sellerPhone: "+20 100 000 0000",
+      photos: JPEG,
+      ...numbers,
+    });
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("accepts the largest allowed price and area", async () => {
+    expect((await submitProperty(null, property({ price: "1000000000", area: "5000" })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ price: 1_000_000_000, area: 5000, bedrooms: 2, bathrooms: 1 }));
+  });
+
+  it("rejects a price over one billion", async () => {
+    expect(await submitProperty(null, property({ price: "1000000001" }))).toEqual({
+      ok: false,
+      message: "Price (EGP) must be a whole number from 1 to 1,000,000,000.",
+    });
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("rejects an area over 5,000 m²", async () => {
+    expect(await submitProperty(null, property({ area: "5001" }))).toEqual({ ok: false, message: "Area (m²) must be a whole number from 1 to 5,000." });
+  });
+
+  it("rejects decimals, exponents, zero prices and missing rooms", async () => {
+    const cases: Record<string, string>[] = [{ price: "1e9" }, { area: "99.5" }, { price: "0" }, { bedrooms: "" }, { bathrooms: "51" }];
+    for (const bad of cases) {
+      expect((await submitProperty(null, property(bad)))?.ok).toBe(false);
+    }
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+});
+
 describe("listing type and home page (admin-only)", () => {
   const fields = {
     title: "Nice flat",
