@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data store
+/.data
+
+# Neon agent skills (installed by the Vercel integration)
+/.agents
+/skills-lock.json

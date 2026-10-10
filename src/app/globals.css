@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Skyline brand palette — gold + espresso (from skyline-colors.css).
+   Light theme: ivory pages, white cards, espresso text, gold actions. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-gold: #e2b267; /* main gold — buttons, badges, icons */
+  --color-gold-hover: #e8ba6f;
+  --color-gold-light: #f9e0a5; /* highlights on dark backgrounds */
+  --color-gold-dark: #c4904a; /* pressed states, accent borders */
+  --color-gold-deep: #7a5a2e; /* gold text on light backgrounds (AA) */
+  --color-espresso: #301406; /* headings, dark sections */
+  --color-deep: #250d01; /* footer / darkest */
+  --color-cream: #f5ebdd; /* body text on dark */
+  --color-ivory: #fbf7f0; /* page background */
+  --color-cocoa: #6e5240; /* secondary text on light */
+  --color-line: #eadbcf; /* borders / dividers on light */
+  --color-success: #7fb069;
+  --color-success-dark: #5f9150;
+  --color-success-deep: #3e6b2f;
+  --color-warning: #e9a23b;
+  --color-error: #e07a5f;
+  --color-info: #7fa7c2;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ivory);
+  color: var(--color-espresso);
+}
+
+/* Arabic: switch to a font with Arabic glyphs and drop Latin letter-spacing.
+   (font-sans is inlined by Tailwind, so the font is set on body directly.) */
+:root[lang="ar"] body {
+  font-family: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+}
+:root[lang="ar"] .eyebrow,
+:root[lang="ar"] .eyebrow-light,
+:root[lang="ar"] .tracking-wide,
+:root[lang="ar"] .tracking-tight {
+  letter-spacing: 0;
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .btn,
+  .btn-primary,
+  .btn-dark,
+  .btn-outline {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-gold text-espresso hover:bg-gold-hover active:bg-gold-dark;
+  }
+  .btn-dark {
+    @apply bg-espresso text-cream hover:bg-deep;
+  }
+  .btn-outline {
+    @apply border border-line bg-white text-espresso hover:border-gold hover:text-gold-deep;
+  }
+  .btn-sm {
+    @apply rounded-lg px-3 py-1.5 text-xs;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-white;
+  }
+  .field {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-espresso outline-none placeholder:text-cocoa/70 focus:border-gold focus:ring-2 focus:ring-gold/30;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-espresso;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-gold-deep;
+  }
+  .eyebrow-light {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-gold-light;
+  }
 }
