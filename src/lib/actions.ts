@@ -5,6 +5,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { checkPassword, endSession, isAdmin, startSession } from "./auth";
 import { CACHE_TAGS } from "./cache-tags";
+import { readDocuments } from "./document-limits";
+import { verifyDocument } from "./documents";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
 import { uploadPhotos } from "./photos";
@@ -15,15 +17,14 @@ import { checkWholeNumber, groupDigits, PROPERTY_LIMITS, TEXT_LIMITS, validEmail
 import {
   FEATURES,
   LEAD_STATUSES,
-  LISTING_TYPES,
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
   PURPOSES,
   RENT_PERIODS,
   SELLER_TYPES,
+  toListingType,
   type FormState,
   type LeadStatus,
-  type ListingType,
   type PropertyStatus,
   type PropertyType,
   type Purpose,
@@ -37,15 +38,16 @@ const MAX_PHOTO_CHARS = 900_000; // ~650 KB per photo once base64-decoded
 const text = (fd: FormData, key: string, max = 200) =>
   String(fd.get(key) ?? "").trim().slice(0, max);
 
-// admin = true allows rentals, a "company" seller (no phone needed), and sets premium/resale and
-// "show on home page". Public submissions are sale-only, arrive as resale and are never featured.
+// admin = true allows rentals, a "company" seller (no phone needed) and "show on home page". Public
+// submissions are sale-only and never featured; the seller picks primary or resale.
 async function parseProperty(fd: FormData, admin = false): Promise<{ error: string } | { data: store.PropertyInput }> {
   const dict = await getDict();
   const t = dict.msg;
   const purpose = (admin ? (text(fd, "purpose") as Purpose) : "sale") satisfies Purpose;
   const rentPeriod = text(fd, "rentPeriod") as RentPeriod;
   const title = text(fd, "title", TEXT_LIMITS.title);
-  const listingType = (admin ? text(fd, "listingType") : "resale") as ListingType;
+  // A public form opened before sellers could choose sends no listing type: it arrives as resale.
+  const listingType = toListingType(text(fd, "listingType") || (admin ? "" : "resale"));
   const type = text(fd, "type") as PropertyType;
   const location = text(fd, "location");
   const sellerType = text(fd, "sellerType") as SellerType;
@@ -65,7 +67,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     }
   }
   if (
-    !LISTING_TYPES.includes(listingType) ||
+    !listingType ||
     !PROPERTY_TYPES.includes(type) ||
     !validLocation ||
     !SELLER_TYPES.includes(sellerType) ||
@@ -86,6 +88,12 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     }
     numbers[key] = Number(raw);
   }
+  // Floor is optional (villas usually have none): empty is stored as null, 0 is the ground floor.
+  const floor = text(fd, "floor");
+  if (checkWholeNumber(floor, PROPERTY_LIMITS.floor, false)) {
+    const { min, max } = PROPERTY_LIMITS.floor;
+    return { error: fmt(t.numberRange, { field: dict.fields.floor, min: String(min), max: String(max) }) };
+  }
   if (!validPhone(sellerPhone) && !(company && !sellerPhone)) return { error: t.badPhone };
   if (sellerWhatsapp && !validPhone(sellerWhatsapp)) {
     return { error: t.badWhatsapp };
@@ -102,6 +110,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       location,
       compound: text(fd, "compound", 80),
       ...numbers,
+      floor: floor ? Number(floor) : null,
       description: text(fd, "description", TEXT_LIMITS.description),
       features: fd.getAll("features").map(String).filter((f) => (FEATURES as readonly string[]).includes(f)),
       seller: {
@@ -129,9 +138,15 @@ export async function submitProperty(_prev: FormState, fd: FormData): Promise<Fo
   if (photos.some((p) => !p.startsWith("data:image/jpeg;base64,") || p.length > MAX_PHOTO_CHARS)) {
     return { ok: false, message: t.photoFailed };
   }
+  // A Primary submission may carry a brochure and a payment plan, already uploaded to Blob by the
+  // browser (docs/primary-documents.md). Resale submissions never keep any.
+  const documents = parsed.data.listingType === "primary" ? readDocuments(fd) : [];
+  if (!documents || (await Promise.all(documents.map(verifyDocument))).includes(false)) {
+    return { ok: false, message: t.documentFailed };
+  }
 
   try {
-    await store.createProperty({ ...parsed.data, photos: await uploadPhotos(photos) });
+    await store.createProperty({ ...parsed.data, photos: await uploadPhotos(photos), documents });
   } catch (err) {
     console.error("Property submission failed", err);
     return { ok: false, message: t.saveFailed };

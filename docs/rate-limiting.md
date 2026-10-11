@@ -16,6 +16,7 @@ Postgres is never queried.
 | `prefetch` | Link prefetches (`next-router-prefetch` header). A page full of cards prefetches many links at once, so these get their own, larger bucket. | 600 / minute |
 | `action` | Form submissions / server actions (any non-GET) | 30 / minute |
 | `login` | Admin password attempts, checked inside `adminLogin` | 5 / 15 minutes |
+| `documentUpload` | Primary-listing document upload tokens, checked inside `/api/documents` (see [primary-documents.md](primary-documents.md)) | 10 / 10 minutes |
 
 A successful admin login resets that IP's `login` counter. Static files (`/_next/`, `/brand/`,
 `/listings/`, icons) are not counted.
@@ -65,7 +66,7 @@ readers. Both the public header and the admin sidebar use it. The most specific 
 
 | Current URL | Highlighted |
 | --- | --- |
-| `/properties?listing=premium&type=villa` | Premium |
+| `/properties?listing=primary&type=villa` | Primary |
 | `/properties?type=villa` | Properties |
 | `/properties/SKY-PRM-0001` | Properties |
 | `/admin/leads` | Leads (not Dashboard) |

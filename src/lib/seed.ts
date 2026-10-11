@@ -12,11 +12,13 @@ const SELLERS: Record<string, Seller> = {
 
 // Location names live in the locations table, so seed rows only carry the location id.
 type SeedProperty = Omit<Property, "locationName">;
-type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured"> & { age: number; featured?: boolean };
+type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents"> & { age: number; featured?: boolean; floor?: number };
 
-const property = ({ age, featured = false, ...p }: SeedInput): SeedProperty => ({
+const property = ({ age, featured = false, floor, ...p }: SeedInput): SeedProperty => ({
   ...p,
   featured,
+  floor: floor ?? null,
+  documents: [],
   purpose: "sale",
   rentPeriod: null,
   previousStatus: p.status === "pending" ? null : "pending",
@@ -25,7 +27,7 @@ const property = ({ age, featured = false, ...p }: SeedInput): SeedProperty => (
   updatedAt: daysAgo(Math.max(age - 1, 0)),
 });
 
-export const seedCounters = () => ({ premium: 3, resale: 4 });
+export const seedCounters = () => ({ primary: 3, resale: 4 });
 
 export function seedProperties(): SeedProperty[] {
   return [
@@ -33,7 +35,7 @@ export function seedProperties(): SeedProperty[] {
       id: "sample-01",
       code: "SKY-PRM-0001",
       title: "Modern villa with private pool",
-      listingType: "premium",
+      listingType: "primary",
       type: "villa",
       location: "new-cairo",
       compound: "Sample Hills",
@@ -61,6 +63,7 @@ export function seedProperties(): SeedProperty[] {
       area: 165,
       bedrooms: 3,
       bathrooms: 2,
+      floor: 4,
       price: 7_800_000,
       description:
         "Fully finished apartment with a large open kitchen and dining area, plenty of natural light and a quiet street view. Close to schools and shopping.",
@@ -94,7 +97,7 @@ export function seedProperties(): SeedProperty[] {
       id: "sample-04",
       code: "SKY-PRM-0002",
       title: "Garden villa with terrace and pool",
-      listingType: "premium",
+      listingType: "primary",
       type: "villa",
       location: "giza",
       compound: "Sample Gardens",
@@ -121,6 +124,7 @@ export function seedProperties(): SeedProperty[] {
       area: 190,
       bedrooms: 3,
       bathrooms: 2,
+      floor: 7,
       price: 5_900_000,
       description: "Two-level home on a leafy street, minutes from the sea, with wooden floors and a bright living room.",
       features: ["Balcony", "Elevator"],
@@ -133,7 +137,7 @@ export function seedProperties(): SeedProperty[] {
       id: "sample-06",
       code: "SKY-PRM-0003",
       title: "Contemporary twin house",
-      listingType: "premium",
+      listingType: "primary",
       type: "twin_house",
       location: "giza",
       compound: "Sample Park",
@@ -159,6 +163,7 @@ export function seedProperties(): SeedProperty[] {
       area: 95,
       bedrooms: 2,
       bathrooms: 1,
+      floor: 0,
       price: 4_300_000,
       description: "Two-bedroom apartment with an open living area.",
       features: ["Elevator"],
@@ -190,7 +195,7 @@ export function seedProperties(): SeedProperty[] {
       id: "sample-09",
       code: null,
       title: "White villa with infinity pool",
-      listingType: "premium",
+      listingType: "primary",
       type: "villa",
       location: "new-cairo",
       compound: "Sample Heights",

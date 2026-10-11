@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Gallery } from "@/components/gallery";
-import { AreaIcon, BathIcon, BedIcon, BuildingIcon, CheckIcon, ChevronIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/icons";
+import { AreaIcon, BathIcon, BedIcon, BuildingIcon, CheckIcon, ChevronIcon, PhoneIcon, PinIcon, StairsIcon, WhatsAppIcon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { PropertyCard, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { ShareButton } from "@/components/share-button";
@@ -40,6 +40,9 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
     { icon: <BedIcon />, label: p.bedrooms, value: property.bedrooms },
     { icon: <BathIcon />, label: p.bathrooms, value: property.bathrooms },
     { icon: <AreaIcon />, label: p.area, value: fmt(t.sqm, { n: property.area }) },
+    // Floor is optional, so the card only appears when it was given. `== null` also covers
+    // properties cached before the field existed, which have no floor key at all.
+    ...(property.floor == null ? [] : [{ icon: <StairsIcon />, label: p.floor, value: property.floor === 0 ? p.ground : property.floor }]),
   ];
 
   return (
@@ -80,7 +83,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           </p>
 
           <h2 className="mt-8 text-lg font-bold">{p.keyFacts}</h2>
-          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <dl className={`mt-3 grid grid-cols-2 gap-3 ${facts.length > 4 ? "sm:grid-cols-3 xl:grid-cols-5" : "sm:grid-cols-4"}`}>
             {facts.map((f) => (
               <div key={f.label} className="card flex items-center gap-3 p-4">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold/15 text-gold-deep">{f.icon}</span>

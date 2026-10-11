@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { CACHE_TAGS, PUBLIC_DATA_TTL } from "./cache-tags";
 import { sql } from "./db";
-import type { Lead, LeadStatus, Location, Property, PropertyStatus } from "./types";
+import { toListingType, type Lead, type LeadStatus, type Location, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
 
@@ -17,7 +17,7 @@ const toProperty = (r: Row): Property => ({
   id: r.id as string,
   code: r.code as string | null,
   title: r.title as string,
-  listingType: r.listing_type as Property["listingType"],
+  listingType: toListingType(r.listing_type) ?? "resale",
   featured: Boolean(r.featured),
   purpose: (r.purpose as Property["purpose"]) ?? "sale",
   rentPeriod: (r.rent_period as Property["rentPeriod"]) ?? null,
@@ -29,10 +29,12 @@ const toProperty = (r: Row): Property => ({
   area: r.area as number,
   bedrooms: r.bedrooms as number,
   bathrooms: r.bathrooms as number,
+  floor: (r.floor as number | null) ?? null,
   price: Number(r.price),
   description: r.description as string,
   features: r.features as string[],
   photos: r.photos as string[],
+  documents: (r.documents as PropertyDocument[] | undefined) ?? [],
   seller: {
     type: r.seller_type as Property["seller"]["type"],
     name: r.seller_name as string,
@@ -110,7 +112,7 @@ export async function getProperty(id: string) {
 
 export type PropertyInput = Omit<
   Property,
-  "id" | "code" | "locationName" | "status" | "previousStatus" | "adminNotes" | "photos" | "createdAt" | "updatedAt"
+  "id" | "code" | "locationName" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "createdAt" | "updatedAt"
 >;
 
 const propertyColumns = (p: PropertyInput) => ({
@@ -125,6 +127,7 @@ const propertyColumns = (p: PropertyInput) => ({
   area: p.area,
   bedrooms: p.bedrooms,
   bathrooms: p.bathrooms,
+  floor: p.floor,
   price: p.price,
   description: p.description,
   features: sql().json(p.features),
@@ -135,8 +138,9 @@ const propertyColumns = (p: PropertyInput) => ({
   seller_company: p.seller.company,
 });
 
-export async function createProperty(input: PropertyInput & { photos: string[] }) {
-  const row = { id: newId(), ...propertyColumns(input), photos: sql().json(input.photos) };
+// Photos and documents are set on creation only; admin edits (updateProperty) keep them.
+export async function createProperty(input: PropertyInput & { photos: string[]; documents?: PropertyDocument[] }) {
+  const row = { id: newId(), ...propertyColumns(input), photos: sql().json(input.photos), documents: sql().json(input.documents ?? []) };
   await sql()`INSERT INTO properties ${sql()(row)}`;
   return row.id;
 }
@@ -148,6 +152,7 @@ export async function updateProperty(id: string, patch: PropertyInput & { adminN
 
 export async function setPropertyStatus(id: string, status: PropertyStatus, adminNotes?: string) {
   // The code is issued on first approval, straight from a sequence, and never changes afterwards.
+  // 'premium' is the old name of 'primary', for rows schema.sql hasn't migrated yet.
   await sql()`
     UPDATE properties SET
       previous_status = CASE WHEN status <> ${status} THEN status ELSE previous_status END,
@@ -155,7 +160,7 @@ export async function setPropertyStatus(id: string, status: PropertyStatus, admi
       code = COALESCE(code, CASE
         WHEN ${status} <> 'published' THEN NULL
         WHEN purpose = 'rent' THEN 'SKY-RNT-' || lpad(nextval('property_code_rent')::text, 4, '0')
-        WHEN listing_type = 'premium' THEN 'SKY-PRM-' || lpad(nextval('property_code_premium')::text, 4, '0')
+        WHEN listing_type IN ('primary', 'premium') THEN 'SKY-PRM-' || lpad(nextval('property_code_premium')::text, 4, '0')
         ELSE 'SKY-RES-' || lpad(nextval('property_code_resale')::text, 4, '0')
       END),
       admin_notes = COALESCE(${adminNotes ?? null}, admin_notes),

@@ -13,6 +13,8 @@ export const PROPERTY_LIMITS = {
   area: { min: 1, max: 5_000 },
   bedrooms: { min: 0, max: 50 },
   bathrooms: { min: 0, max: 50 },
+  /** Optional: 0 is the ground floor. */
+  floor: { min: 0, max: 45 },
 } as const satisfies Record<string, NumberLimits>;
 
 export type NumberError = "required" | "notNumber" | "tooSmall" | "tooLarge";

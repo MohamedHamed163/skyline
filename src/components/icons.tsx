@@ -26,6 +26,11 @@ export const AreaIcon = ({ className }: P) => (
     <path d="M4 4h16v16H4zM4 9h5V4M15 20v-5h5" />
   </svg>
 );
+export const StairsIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <path d="M3 20h5v-5h5v-5h5V5h3" />
+  </svg>
+);
 export const PinIcon = ({ className }: P) => (
   <svg {...base(className)}>
     <path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11Z" />
@@ -79,5 +84,10 @@ export const ShareIcon = ({ className }: P) => (
 export const BuildingIcon = ({ className }: P) => (
   <svg {...base(className)}>
     <path d="M4 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M14 9h5a1 1 0 0 1 1 1v11M4 21h17M8 8h2M8 12h2M8 16h2M17 13h1M17 17h1" />
+  </svg>
+);
+export const DocumentIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5M9 13h6M9 17h6" />
   </svg>
 );

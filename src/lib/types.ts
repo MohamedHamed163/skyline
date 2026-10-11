@@ -1,5 +1,12 @@
-export const LISTING_TYPES = ["premium", "resale"] as const;
+export const LISTING_TYPES = ["primary", "resale"] as const;
 export type ListingType = (typeof LISTING_TYPES)[number];
+
+/**
+ * Reads a listing type from a URL, form or row. "premium" was the old name of "primary"
+ * (docs/listing-types.md), so old links, open forms and unmigrated rows keep working.
+ */
+export const toListingType = (v: unknown): ListingType | undefined =>
+  v === "premium" ? "primary" : LISTING_TYPES.find((t) => t === v);
 
 export const PROPERTY_TYPES = [
   "apartment",
@@ -75,6 +82,18 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
+/** Files a broker or owner can attach to a Primary submission (docs/primary-documents.md). */
+export const DOCUMENT_KINDS = ["brochure", "paymentPlan"] as const;
+export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
+
+export type PropertyDocument = {
+  kind: DocumentKind;
+  /** Vercel Blob URL. Unguessable, and only ever shown in the admin dashboard. */
+  url: string;
+  /** The file name as it was on the seller's device, for display. */
+  name: string;
+};
+
 export type Seller = {
   type: SellerType;
   name: string;
@@ -88,7 +107,7 @@ export type Property = {
   /** Skyline Property Code, e.g. SKY-RES-0001. Assigned on first approval and never changed. */
   code: string | null;
   title: string;
-  /** Premium or resale. Set by the admin; public submissions arrive as resale. */
+  /** Primary or resale. Chosen by the seller on /submit; the admin can change it. */
   listingType: ListingType;
   /** Admin-picked: shown first in its home-page section (and its compound first in Featured projects). */
   featured: boolean;
@@ -104,10 +123,14 @@ export type Property = {
   area: number;
   bedrooms: number;
   bathrooms: number;
+  /** 0 is the ground floor; null when not given (villas and houses usually have none). */
+  floor: number | null;
   price: number;
   description: string;
   features: string[];
   photos: string[];
+  /** Private: the brochure and payment plan sent with a Primary submission. Admin-only. */
+  documents: PropertyDocument[];
   /** Private: never rendered on public pages. */
   seller: Seller;
   status: PropertyStatus;

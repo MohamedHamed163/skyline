@@ -20,8 +20,8 @@ import {
 } from "@/lib/types";
 
 // Property + seller inputs shared by the public submission form and the admin forms.
-// admin = true unlocks the rent purpose, the "Skyline (company)" seller, premium/resale and
-// "show on home page". Public submissions arrive as resale; the admin decides afterwards.
+// admin = true unlocks the rent purpose, the "Skyline (company)" seller, primary/resale and
+// "show on home page". On /submit the seller picks primary/resale above these fields (PropertyForm).
 // locations: the choices for the location field (see selectableLocations).
 export function PropertyFields({ locations, defaults, admin = false, defaultPurpose = "sale" }: { locations: Location[]; defaults?: Property; admin?: boolean; defaultPurpose?: Purpose }) {
   const t = useDict();
@@ -125,7 +125,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
           </label>
           <input id="compound" name="compound" maxLength={80} defaultValue={d?.compound} className="field" />
         </div>
-        <div className="grid grid-cols-3 gap-4 sm:col-span-2">
+        <div className="grid grid-cols-2 gap-4 sm:col-span-2 sm:grid-cols-4">
           <div>
             <label className="label" htmlFor="area">
               {f.area}
@@ -143,6 +143,12 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
               {f.bathrooms}
             </label>
             <NumberField id="bathrooms" name="bathrooms" limits={PROPERTY_LIMITS.bathrooms} defaultValue={d?.bathrooms} />
+          </div>
+          <div>
+            <label className="label" htmlFor="floor">
+              {f.floor} <span className="font-normal text-cocoa">{t.optional}</span>
+            </label>
+            <NumberField id="floor" name="floor" limits={PROPERTY_LIMITS.floor} required={false} defaultValue={d?.floor ?? undefined} placeholder={f.floorPlaceholder} />
           </div>
         </div>
         <div className="sm:col-span-2">

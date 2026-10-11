@@ -1,7 +1,15 @@
+import type { Dict } from "./i18n/en";
+import { fmt } from "./i18n/shared";
+
 export const CURRENCY = "EGP";
 
 export function formatPrice(price: number, currency = CURRENCY) {
   return `${new Intl.NumberFormat("en-US").format(price)} ${currency}`;
+}
+
+/** "Ground floor" for 0, otherwise "Floor 3". */
+export function floorText(t: Pick<Dict, "floorN" | "groundFloor">, floor: number) {
+  return floor === 0 ? t.groundFloor : fmt(t.floorN, { n: floor });
 }
 
 const CAIRO = "Africa/Cairo";

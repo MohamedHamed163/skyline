@@ -33,6 +33,14 @@ describe("checkWholeNumber", () => {
     expect(checkWholeNumber("0", PROPERTY_LIMITS.bedrooms)).toBeNull();
     expect(checkWholeNumber("51", PROPERTY_LIMITS.bathrooms)).toBe("tooLarge");
   });
+
+  it("allows an empty floor, the ground floor (0) and up to floor 45", () => {
+    expect(checkWholeNumber("", PROPERTY_LIMITS.floor, false)).toBeNull();
+    expect(checkWholeNumber("0", PROPERTY_LIMITS.floor, false)).toBeNull();
+    expect(checkWholeNumber("45", PROPERTY_LIMITS.floor, false)).toBeNull();
+    expect(checkWholeNumber("46", PROPERTY_LIMITS.floor, false)).toBe("tooLarge");
+    expect(checkWholeNumber("-1", PROPERTY_LIMITS.floor, false)).toBe("notNumber");
+  });
 });
 
 describe("digit input helpers", () => {

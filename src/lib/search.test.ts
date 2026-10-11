@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeLocation, makeProperty } from "@/test/fixtures";
-import { applySearch, featuredFirst, groupProjects, locationStats, parseSearch, placeLinks, popularLocationSearches, searchHref, sortHrefs } from "./search";
+import { applySearch, featuredFirst, groupProjects, locationStats, parseSearch, placeLinks, popularLocationSearches, SEARCH_TABS, searchHref, searchTab, sortHrefs } from "./search";
 
 const newCairo = makeLocation();
 const giza = makeLocation({ id: "giza", nameEn: "Giza", nameAr: "الجيزة" });
@@ -21,6 +21,45 @@ describe("parseSearch locations", () => {
     expect(href).toBe("/properties?location=giza&location=new-cairo");
     const params = Object.fromEntries([["location", new URLSearchParams(href.split("?")[1]).getAll("location")]]);
     expect(parseSearch(params).locations).toEqual(["giza", "new-cairo"]);
+  });
+});
+
+describe("search-bar tabs and listing types", () => {
+  it("offers Primary, Resale and Rent, with no Buy tab", () => {
+    expect(SEARCH_TABS).toEqual(["primary", "resale", "rent"]);
+  });
+
+  it("picks no tab by default, so a plain search covers every sale listing", () => {
+    const query = parseSearch({ q: "SKY-RES-0001" });
+    expect(searchTab(query)).toBeUndefined();
+    expect(query).toMatchObject({ purpose: "sale", listing: undefined });
+  });
+
+  it("round-trips every tab through the search URL", () => {
+    for (const tab of SEARCH_TABS) expect(searchTab(parseSearch({ tab }))).toBe(tab);
+  });
+
+  it("searches primary listings from the tab and from links", () => {
+    expect(parseSearch({ tab: "primary" }).listing).toBe("primary");
+    expect(parseSearch({ listing: "primary" }).listing).toBe("primary");
+    expect(searchHref(parseSearch({}), { listing: "primary" })).toBe("/properties?listing=primary");
+  });
+
+  it("still opens old premium links as primary", () => {
+    expect(parseSearch({ listing: "premium" }).listing).toBe("primary");
+    expect(parseSearch({ tab: "premium" }).listing).toBe("primary");
+  });
+
+  it("ignores the listing type on rentals and an old 'all' tab", () => {
+    expect(parseSearch({ tab: "rent", listing: "primary" })).toMatchObject({ purpose: "rent", listing: undefined });
+    expect(parseSearch({ tab: "all" }).listing).toBeUndefined();
+  });
+
+  it("filters results to the chosen listing type", () => {
+    const primary = makeProperty({ id: "a", listingType: "primary" });
+    const resale = makeProperty({ id: "b", listingType: "resale" });
+    expect(applySearch([primary, resale], parseSearch({ tab: "primary" }))).toEqual([primary]);
+    expect(applySearch([primary, resale], parseSearch({ tab: "resale" }))).toEqual([resale]);
   });
 });
 
@@ -82,6 +121,17 @@ describe("groupProjects", () => {
     const [project] = groupProjects([makeProperty({ compound: "Palm Hills", location: "giza", locationName: gizaName })]);
     expect(project.location).toBe("giza");
     expect(project.locationName).toEqual(gizaName);
+  });
+
+  it("labels a project primary when at least half its listings are primary", () => {
+    const [half] = groupProjects([makeProperty({ id: "a", compound: "Half", listingType: "primary" }), makeProperty({ id: "b", compound: "Half" })]);
+    const [mostlyResale] = groupProjects([
+      makeProperty({ id: "c", compound: "Resale", listingType: "primary" }),
+      makeProperty({ id: "d", compound: "Resale" }),
+      makeProperty({ id: "e", compound: "Resale" }),
+    ]);
+    expect(half.listingType).toBe("primary");
+    expect(mostlyResale.listingType).toBe("resale");
   });
 
   it("puts projects with a featured property first, then the biggest", () => {

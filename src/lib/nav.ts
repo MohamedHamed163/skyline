@@ -30,7 +30,7 @@ function score(href: string, { pathname, search }: Current) {
 
 /**
  * The single nav href to highlight for the current page: the most specific one that
- * matches. On /properties?listing=premium&type=villa that is "Premium", not "Properties";
+ * matches. On /properties?listing=primary&type=villa that is "Primary", not "Properties";
  * on /properties/SKY-PRM-0001 it is "Properties"; on /admin/leads it is "Leads", not "Dashboard".
  */
 export function activeHref(hrefs: readonly string[], current: Current) {

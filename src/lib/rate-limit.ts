@@ -81,9 +81,11 @@ export const LIMITS = {
   action: { max: 30, windowMs: MINUTE },
   /** Admin password attempts (checked in the login action itself). */
   login: { max: 5, windowMs: 15 * MINUTE },
+  /** Primary-listing document uploads (checked in /api/documents itself). */
+  documentUpload: { max: 10, windowMs: 10 * MINUTE },
 } satisfies Record<string, Limit>;
 
-export type Bucket = Exclude<keyof typeof LIMITS, "login">;
+export type Bucket = Exclude<keyof typeof LIMITS, "login" | "documentUpload">;
 
 export function bucketFor(method: string, headers: Headers): Bucket {
   if (method !== "GET" && method !== "HEAD") return "action";

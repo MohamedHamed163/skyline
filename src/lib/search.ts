@@ -1,4 +1,4 @@
-import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose, type RentPeriod } from "./types";
+import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS, toListingType, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose, type RentPeriod } from "./types";
 
 // Public search: parses URL params, filters/sorts published properties, paginates,
 // and derives the market and project summaries shown on the site.
@@ -6,6 +6,13 @@ import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS, type ListingType
 export const SORTS = ["newest", "price_asc", "price_desc", "area_desc"] as const;
 export type Sort = (typeof SORTS)[number];
 export const PER_PAGE = 12;
+
+/**
+ * The home search-bar tabs. There is no "Buy" tab and none is picked by default, so a plain
+ * search covers every sale listing; picking a tab narrows it (docs/listing-types.md).
+ */
+export const SEARCH_TABS = [...LISTING_TYPES, "rent"] as const;
+export type SearchTab = (typeof SEARCH_TABS)[number];
 
 export type SearchQuery = {
   q: string;
@@ -35,14 +42,14 @@ const num = (v: string | string[] | undefined) => Math.max(0, Number(one(v)) || 
 const LOCATION_ID = /^[a-z0-9-]{1,60}$/;
 
 export function parseSearch(params: Params): SearchQuery {
-  // The search bar posts a single "tab" (all | premium | resale | rent); links use purpose/listing directly.
+  // The search bar posts a single "tab" (primary | resale | rent); links use purpose/listing directly.
   const tab = one(params.tab);
   const rent = tab === "rent" || one(params.purpose) === "rent";
   return {
     q: one(params.q).trim().slice(0, 80),
     purpose: rent ? "rent" : "sale",
     period: rent ? RENT_PERIODS.find((v) => v === one(params.period)) : undefined,
-    listing: rent ? undefined : LISTING_TYPES.find((v) => v === (tab === "premium" || tab === "resale" ? tab : one(params.listing))),
+    listing: rent ? undefined : (toListingType(tab) ?? toListingType(one(params.listing))),
     types: PROPERTY_TYPES.filter((v) => list(params.type).includes(v)),
     locations: [...new Set(list(params.location).filter((v) => LOCATION_ID.test(v)))].slice(0, 20),
     compound: one(params.compound).trim().slice(0, 80),
@@ -56,6 +63,11 @@ export function parseSearch(params: Params): SearchQuery {
     sort: SORTS.find((s) => s === one(params.sort)) ?? "newest",
     page: Math.max(1, Math.floor(num(params.page)) || 1),
   };
+}
+
+/** The search-bar tab that matches a query, or undefined when it covers every sale listing. */
+export function searchTab(q: Partial<Pick<SearchQuery, "purpose" | "listing">>): SearchTab | undefined {
+  return q.purpose === "rent" ? "rent" : q.listing;
 }
 
 export function isFiltered(s: SearchQuery) {
@@ -199,13 +211,13 @@ export function groupProjects(published: Property[]): Project[] {
   }
   return [...map.entries()]
     .map(([compound, properties]) => {
-      const premium = properties.filter((p) => p.listingType === "premium").length;
+      const primary = properties.filter((p) => p.listingType === "primary").length;
       return {
         compound,
         slug: projectSlug(compound),
         location: properties[0].location,
         locationName: properties[0].locationName,
-        listingType: premium * 2 >= properties.length ? "premium" : "resale",
+        listingType: primary * 2 >= properties.length ? "primary" : "resale",
         featured: properties.some((p) => p.featured),
         properties,
         cover: properties[0].photos[0],

@@ -14,7 +14,7 @@ export function Photo({ src, alt, className = "" }: { src: string; alt: string; 
 export function ListingBadge({ type, label, className = "" }: { type: ListingType; label: string; className?: string }) {
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-semibold ${type === "premium" ? "bg-espresso text-gold-light" : "bg-gold text-espresso"} ${className}`}
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${type === "primary" ? "bg-espresso text-gold-light" : "bg-gold text-espresso"} ${className}`}
     >
       {label}
     </span>

@@ -6,7 +6,7 @@ every form in the site, not just this one), and how dropdowns look across the si
 
 ## User behaviour
 
-### Numeric fields (price, area, bedrooms, bathrooms)
+### Numeric fields (price, area, bedrooms, bathrooms, floor)
 
 - They are text fields (`NumberField`), not `<input type="number">`, so there are no spinner arrows,
   no scroll-wheel changes and no `e`, `-` or `.` input. Anything that isn't a digit is dropped as
@@ -21,6 +21,7 @@ every form in the site, not just this one), and how dropdowns look across the si
   | Area (m²) | 1 | 5,000 |
   | Bedrooms | 0 | 50 |
   | Bathrooms | 0 | 50 |
+  | Floor (optional, 0 = ground; see [floor.md](floor.md)) | 0 | 45 |
 
 - A field can't hold more digits than its maximum has (10 for price, 4 for area). Extra keystrokes
   are ignored, and a long paste keeps the digits that fit.
@@ -74,7 +75,7 @@ Arabic. The sort dropdown on `/properties` has its own icon and spinner (see [so
 
 ## Data model
 
-No change. `area`, `bedrooms` and `bathrooms` are `integer` and `price` is `bigint` in
+No change here. `area`, `bedrooms`, `bathrooms` and `floor` (nullable) are `integer` and `price` is `bigint` in
 `src/lib/schema.sql`; the limits keep values well inside both.
 
 ## Code map
@@ -84,7 +85,7 @@ No change. `area`, `bedrooms` and `bathrooms` are `integer` and `price` is `bigi
 | `src/lib/validation.ts` | `PROPERTY_LIMITS`, `TEXT_LIMITS`, `counterTone`, `checkWholeNumber`, `digitsOnly` / `toLatinDigits`, `maxDigits`, `groupDigits`, `caretAfterDigits`. Shared by the client field and the server action. |
 | `src/components/number-field.tsx` | `NumberField`: digits-only controlled input, live error, `setCustomValidity` to block submit, hidden input carrying the raw digits under `name`. |
 | `src/components/limited-text.tsx` | `LimitedText`: input or textarea with `maxLength` and the live counter. |
-| `src/components/property-fields.tsx` | Uses `NumberField` for price, area, bedrooms and bathrooms, and `LimitedText` for title and description. |
+| `src/components/property-fields.tsx` | Uses `NumberField` for price, area, bedrooms, bathrooms and floor (optional), and `LimitedText` for title and description. |
 | `src/components/property-form.tsx`, `src/components/edit-property-form.tsx` | Submit from `onSubmit` + `startTransition` instead of `<form action>`, because React resets a form after its action runs, even when it fails. |
 | `src/lib/safe-action.ts` | `succeeded`: runs a request and returns false if it throws, re-throwing Next.js redirects via `unstable_rethrow`. `withFailureMessage`: wraps a server action for `useActionState` so a thrown request becomes `{ ok: false, message }`. |
 | `src/components/action-form.tsx` | `ActionForm`: `<form>` for server actions that return nothing. Submits from `onSubmit` with the clicked button (`submitter`), disables its controls while pending, optional `confirm`, inline error on failure. |

@@ -33,6 +33,7 @@ if (count > 0) {
       area: p.area,
       bedrooms: p.bedrooms,
       bathrooms: p.bathrooms,
+      floor: p.floor,
       price: p.price,
       description: p.description,
       features: sql.json(p.features),
@@ -68,7 +69,7 @@ if (count > 0) {
   }
   // Continue the code counters after the sample codes.
   const counters = seedCounters();
-  await sql`SELECT setval('property_code_premium', ${counters.premium}), setval('property_code_resale', ${counters.resale})`;
+  await sql`SELECT setval('property_code_premium', ${counters.primary}), setval('property_code_resale', ${counters.resale})`;
   console.log("Sample data loaded.");
 }
 

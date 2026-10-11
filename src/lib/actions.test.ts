@@ -14,6 +14,7 @@ const store = vi.hoisted(() => ({
 }));
 const auth = vi.hoisted(() => ({ isAdmin: vi.fn() }));
 const photos = vi.hoisted(() => ({ uploadPhotos: vi.fn() }));
+const documents = vi.hoisted(() => ({ verifyDocument: vi.fn() }));
 const nav = vi.hoisted(() => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT ${url}`);
@@ -23,6 +24,7 @@ const nav = vi.hoisted(() => ({
 vi.mock("./store", () => store);
 vi.mock("./auth", () => ({ ...auth, checkPassword: vi.fn(), startSession: vi.fn(), endSession: vi.fn() }));
 vi.mock("./photos", () => photos);
+vi.mock("./documents", () => documents);
 vi.mock("./i18n", async () => ({ ...(await import("./i18n/shared")), getDict: async () => en, isLocale: () => true, LOCALE_COOKIE: "lang" }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
@@ -43,6 +45,7 @@ beforeEach(() => {
   auth.isAdmin.mockResolvedValue(true);
   store.getLocations.mockResolvedValue([makeLocation(), makeLocation({ id: "giza", nameEn: "Giza", nameAr: "الجيزة", archived: true })]);
   photos.uploadPhotos.mockResolvedValue(["https://blob.example/locations/photo.jpg"]);
+  documents.verifyDocument.mockResolvedValue(true);
 });
 
 describe("createLocation", () => {
@@ -212,6 +215,43 @@ describe("numeric property limits", () => {
   });
 });
 
+describe("floor number", () => {
+  const property = (floor?: string) =>
+    form({ title: "Nice flat", type: "apartment", location: "new-cairo", price: "1000000", area: "100", bedrooms: "2", bathrooms: "1", sellerType: "owner", sellerName: "Owner", sellerPhone: "+20 100 000 0000", photos: JPEG, ...(floor === undefined ? {} : { floor }) });
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("is optional: an empty or missing floor is saved as null", async () => {
+    expect((await submitProperty(null, property("")))?.ok).toBe(true);
+    expect((await submitProperty(null, property()))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenNthCalledWith(1, expect.objectContaining({ floor: null }));
+    expect(store.createProperty).toHaveBeenNthCalledWith(2, expect.objectContaining({ floor: null }));
+  });
+
+  it("saves the ground floor as 0 and accepts the top floor, 45", async () => {
+    expect((await submitProperty(null, property("0")))?.ok).toBe(true);
+    expect((await submitProperty(null, property("45")))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenNthCalledWith(1, expect.objectContaining({ floor: 0 }));
+    expect(store.createProperty).toHaveBeenNthCalledWith(2, expect.objectContaining({ floor: 45 }));
+  });
+
+  it("rejects floors above 45 and anything that isn't a whole number", async () => {
+    expect(await submitProperty(null, property("46"))).toEqual({ ok: false, message: "Floor must be a whole number from 0 to 45." });
+    for (const bad of ["-1", "2.5", "G"]) {
+      expect((await submitProperty(null, property(bad)))?.ok).toBe(false);
+    }
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("lets the admin change the floor when editing", async () => {
+    const fd = property("12");
+    fd.set("purpose", "sale");
+    fd.set("listingType", "resale");
+    expect(await updateProperty("p1", null, fd)).toEqual({ ok: true, message: en.msg.saved });
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ floor: 12 }));
+  });
+});
+
 describe("text length limits", () => {
   const property = (text: Record<string, string>) =>
     form({ title: "Nice flat", type: "apartment", location: "new-cairo", price: "1000000", area: "100", bedrooms: "2", bathrooms: "1", sellerType: "owner", sellerName: "Owner", sellerPhone: "+20 100 000 0000", photos: JPEG, ...text });
@@ -248,15 +288,20 @@ describe("listing type and home page (admin-only)", () => {
 
   beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
 
-  it("ignores premium and featured on public submissions", async () => {
-    expect((await submitProperty(null, form({ ...fields, listingType: "premium", featured: "on", photos: JPEG })))?.ok).toBe(true);
-    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ listingType: "resale", featured: false }));
+  it("ignores featured on public submissions", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "resale", featured: "on", photos: JPEG })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ featured: false }));
   });
 
-  it("lets the admin set premium and show on the home page", async () => {
-    const result = await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "premium", featured: "on" }));
+  it("lets the admin set primary and show on the home page", async () => {
+    const result = await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "primary", featured: "on" }));
     expect(result).toEqual({ ok: true, message: en.msg.saved });
-    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ listingType: "premium", featured: true }));
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ listingType: "primary", featured: true }));
+  });
+
+  it("saves an edit form opened before the rename (premium) as primary", async () => {
+    expect((await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "premium" })))?.ok).toBe(true);
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ listingType: "primary" }));
   });
 
   it("removes a property from the home page when the box is unticked", async () => {
@@ -267,5 +312,87 @@ describe("listing type and home page (admin-only)", () => {
   it("rejects an unknown listing type from the admin", async () => {
     expect(await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "gold" }))).toEqual({ ok: false, message: en.msg.propertyChoices });
     expect(store.updateProperty).not.toHaveBeenCalled();
+  });
+});
+
+describe("seller's primary/resale choice and primary documents", () => {
+  const BLOB = "https://abc123.public.blob.vercel-storage.com/documents";
+  const fields = {
+    title: "New villa",
+    type: "villa",
+    location: "new-cairo",
+    price: "9000000",
+    area: "300",
+    bedrooms: "4",
+    bathrooms: "3",
+    sellerType: "broker",
+    sellerName: "Broker",
+    sellerPhone: "+20 100 000 0000",
+    photos: JPEG,
+  };
+  const docs = {
+    brochureUrl: `${BLOB}/brochure-a1.pdf`,
+    brochureName: "Brochure.pdf",
+    paymentPlanUrl: `${BLOB}/paymentPlan-b2.xlsx`,
+    paymentPlanName: "Payment plan.xlsx",
+  };
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("saves the seller's choice of primary or resale", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary" })))?.ok).toBe(true);
+    expect((await submitProperty(null, form({ ...fields, listingType: "resale" })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenNthCalledWith(1, expect.objectContaining({ listingType: "primary", documents: [] }));
+    expect(store.createProperty).toHaveBeenNthCalledWith(2, expect.objectContaining({ listingType: "resale", documents: [] }));
+  });
+
+  it("treats a form opened before the choice existed (no listing type) as resale", async () => {
+    expect((await submitProperty(null, form(fields)))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ listingType: "resale" }));
+  });
+
+  it("rejects an unknown listing type", async () => {
+    expect(await submitProperty(null, form({ ...fields, listingType: "gold" }))).toEqual({ ok: false, message: en.msg.propertyChoices });
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("saves the brochure and payment plan with a primary submission", async () => {
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", ...docs }))).toEqual({ ok: true, message: en.msg.submitted });
+    const saved = [
+      { kind: "brochure", url: docs.brochureUrl, name: "Brochure.pdf" },
+      { kind: "paymentPlan", url: docs.paymentPlanUrl, name: "Payment plan.xlsx" },
+    ];
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ listingType: "primary", documents: saved }));
+    expect(documents.verifyDocument.mock.calls.map(([d]) => d)).toEqual(saved);
+  });
+
+  it("accepts a primary submission with just one of the documents", async () => {
+    const { brochureUrl, brochureName } = docs;
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary", brochureUrl, brochureName })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ documents: [{ kind: "brochure", url: brochureUrl, name: "Brochure.pdf" }] }));
+  });
+
+  it("never keeps documents on a resale submission", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "resale", ...docs })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ documents: [] }));
+    expect(documents.verifyDocument).not.toHaveBeenCalled();
+  });
+
+  it("rejects a document URL that isn't one of our uploads, without saving", async () => {
+    const result = await submitProperty(null, form({ ...fields, listingType: "primary", ...docs, paymentPlanUrl: "https://evil.example/plan.xlsx" }));
+    expect(result).toEqual({ ok: false, message: en.msg.documentFailed });
+    expect(store.createProperty).not.toHaveBeenCalled();
+    expect(photos.uploadPhotos).not.toHaveBeenCalled();
+  });
+
+  it("rejects a document the Blob store doesn't confirm", async () => {
+    documents.verifyDocument.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", ...docs }))).toEqual({ ok: false, message: en.msg.documentFailed });
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("leaves documents alone when the admin edits the property", async () => {
+    await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "resale", ...docs }));
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.not.objectContaining({ documents: expect.anything() }));
   });
 });

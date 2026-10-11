@@ -18,7 +18,7 @@ async function navItems() {
   const t = (await getDict()).nav;
   return [
     { href: "/properties", label: t.properties },
-    { href: "/properties?listing=premium", label: t.premium },
+    { href: "/properties?listing=primary", label: t.primary },
     { href: "/properties?listing=resale", label: t.resale },
     { href: "/properties?purpose=rent", label: t.rent },
     { href: "/projects", label: t.projects },

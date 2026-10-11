@@ -7,7 +7,7 @@ import { fmt, getDict } from "@/lib/i18n";
 import { sellerName } from "@/lib/sellers";
 import { locationLabel, localName } from "@/lib/locations";
 import { getLocations, getProperties } from "@/lib/store";
-import { LISTING_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, PURPOSES, SELLER_TYPES } from "@/lib/types";
+import { LISTING_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, PURPOSES, SELLER_TYPES, toListingType } from "@/lib/types";
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const digits = (s: string) => s.replace(/\D/g, "");
@@ -16,7 +16,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
   const [t, params, all, locations] = await Promise.all([getDict(), searchParams, getProperties(), getLocations()]);
   const a = t.admin;
   const q = one(params.q).trim().toLowerCase();
-  const listing = LISTING_TYPES.find((v) => v === params.listing);
+  const listing = toListingType(one(params.listing));
   // "inactive" is the Archived / Sold view from the sidebar.
   const statusParam = one(params.status);
   const status = PROPERTY_STATUSES.find((s) => s === statusParam);

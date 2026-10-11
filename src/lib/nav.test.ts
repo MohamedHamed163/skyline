@@ -8,7 +8,7 @@ const at = (url: string) => {
 
 const SITE = [
   "/properties",
-  "/properties?listing=premium",
+  "/properties?listing=primary",
   "/properties?listing=resale",
   "/properties?purpose=rent",
   "/projects",
@@ -21,7 +21,7 @@ const ADMIN = ["/admin", "/admin/properties", "/admin/properties?status=pending"
 describe("isCurrentUrl", () => {
   it("is true for the exact page", () => {
     expect(isCurrentUrl("/about", at("/about"))).toBe(true);
-    expect(isCurrentUrl("/properties?listing=premium", at("/properties?listing=premium"))).toBe(true);
+    expect(isCurrentUrl("/properties?listing=primary", at("/properties?listing=primary"))).toBe(true);
   });
   it("ignores query parameter order", () => {
     expect(isCurrentUrl("/properties?a=1&b=2", at("/properties?b=2&a=1"))).toBe(true);
@@ -30,7 +30,7 @@ describe("isCurrentUrl", () => {
     expect(isCurrentUrl("/about", at("/contact"))).toBe(false);
     // Clicking "Properties" while filtered should still clear the filters.
     expect(isCurrentUrl("/properties", at("/properties?type=villa"))).toBe(false);
-    expect(isCurrentUrl("/properties?listing=premium", at("/properties"))).toBe(false);
+    expect(isCurrentUrl("/properties?listing=primary", at("/properties"))).toBe(false);
   });
 });
 
@@ -40,8 +40,8 @@ describe("activeHref", () => {
     expect(activeHref(SITE, at("/properties"))).toBe("/properties");
   });
   it("prefers the most specific match", () => {
-    expect(activeHref(SITE, at("/properties?listing=premium"))).toBe("/properties?listing=premium");
-    expect(activeHref(SITE, at("/properties?listing=premium&type=villa"))).toBe("/properties?listing=premium");
+    expect(activeHref(SITE, at("/properties?listing=primary"))).toBe("/properties?listing=primary");
+    expect(activeHref(SITE, at("/properties?listing=primary&type=villa"))).toBe("/properties?listing=primary");
     expect(activeHref(SITE, at("/properties?type=villa"))).toBe("/properties");
   });
   it("highlights the section for nested pages", () => {

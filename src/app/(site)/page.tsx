@@ -21,7 +21,7 @@ export default async function HomePage() {
   const maxSqm = Math.max(1, ...stats.map((s) => s.avgSqm));
   const empty = parseSearch({});
   const popular = [
-    { label: t.listing.premium, href: searchHref(empty, { listing: "premium" }) },
+    { label: t.listing.primary, href: searchHref(empty, { listing: "primary" }) },
     ...popularLocationSearches(published, locations).map(({ location, type }) => ({
       label: `${t.type[type]} · ${locationLabel(t, location)}`,
       href: searchHref(empty, { types: [type], locations: [location.id] }),
@@ -77,16 +77,16 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Premium / resale rows */}
-      {(["premium", "resale"] as const).map((listing) => {
+      {/* Primary / resale rows */}
+      {(["primary", "resale"] as const).map((listing) => {
         const items = featuredFirst(published.filter((p) => p.listingType === listing)).slice(0, 3);
         if (!items.length) return null;
         return (
           <section key={listing} className="container-page pt-16">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
               <div>
-                <p className="eyebrow">{listing === "premium" ? h.premiumEyebrow : h.resaleEyebrow}</p>
-                <h2 className="mt-2 text-2xl font-bold sm:text-3xl">{listing === "premium" ? h.premiumTitle : h.resaleTitle}</h2>
+                <p className="eyebrow">{listing === "primary" ? h.primaryEyebrow : h.resaleEyebrow}</p>
+                <h2 className="mt-2 text-2xl font-bold sm:text-3xl">{listing === "primary" ? h.primaryTitle : h.resaleTitle}</h2>
               </div>
               <Link href={searchHref(empty, { listing })} className="shrink-0 text-sm font-semibold text-gold-deep hover:underline">
                 {h.viewAll} {t.dir === "rtl" ? "←" : "→"}

@@ -4,9 +4,10 @@ import { ActionForm } from "@/components/action-form";
 import { LeadStatusBadge, StatusActions, StatusBadge } from "@/components/admin-ui";
 import { CopyCode } from "@/components/copy-button";
 import { EditPropertyForm } from "@/components/edit-property-form";
+import { DocumentIcon } from "@/components/icons";
 import { Photo, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { requestChanges } from "@/lib/actions";
-import { formatDate, telHref, whatsappHref } from "@/lib/format";
+import { floorText, formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { sellerName, sellerWithType } from "@/lib/sellers";
 import { selectableLocations } from "@/lib/locations";
@@ -58,6 +59,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           <p className="text-sm text-cocoa">
             {t.type[property.type]} · {placeLabel(t, property)} · {fmt(t.beds, { n: property.bedrooms })} ·{" "}
             {fmt(t.baths, { n: property.bathrooms })} · {fmt(t.sqm, { n: property.area })}
+            {property.floor != null && <> · {floorText(t, property.floor)}</>}
           </p>
           <p className="mt-1 text-xl font-extrabold text-gold-deep">{priceText(t, property)}</p>
         </div>
@@ -83,6 +85,33 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           </a>
         ))}
       </div>
+
+      {(property.documents.length > 0 || property.listingType === "primary") && (
+        <section className="card p-5">
+          <h2 className="font-bold">{a.documents}</h2>
+          <p className="text-xs text-cocoa">{a.documentsPrivate}</p>
+          {property.documents.length === 0 ? (
+            <p className="mt-3 text-sm text-cocoa">{a.noDocuments}</p>
+          ) : (
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+              {property.documents.map((d) => (
+                <li key={d.kind}>
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-line bg-ivory p-3 hover:border-gold">
+                    <DocumentIcon className="h-8 w-8 text-gold-deep" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{t.documentKind[d.kind]}</span>
+                      <span className="block truncate text-xs text-cocoa" dir="auto">
+                        {d.name}
+                      </span>
+                    </span>
+                    <span className="text-sm font-medium text-gold-deep">{a.openDocument}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card p-5">

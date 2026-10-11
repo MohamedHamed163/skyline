@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin", label: n.dashboard },
     { href: "/admin/properties", label: n.properties },
     { href: "/admin/properties?status=pending", label: n.pending, count: pending },
-    { href: "/admin/properties?listing=premium", label: n.premium },
+    { href: "/admin/properties?listing=primary", label: n.primary },
     { href: "/admin/properties?listing=resale", label: n.resale },
     { href: "/admin/properties?purpose=rent", label: n.rentals },
     { href: "/admin/leads", label: n.leads, count: newLeads },

@@ -5,11 +5,11 @@ Next.js (App Router) and Tailwind CSS.
 
 ## Workflow
 
-Broker / owner submits a property at `/submit` → status **Pending Approval** → admin reviews in
-`/admin` → on approval the property gets a permanent code (`SKY-PRM-0001` / `SKY-RES-0001`) and
-is published → customers browse `/properties` and request more information → a lead is created
-with the property code → admin calls / WhatsApps the customer and tracks the lead → the property
-is eventually reserved, sold or archived.
+Broker / owner picks Primary or Resale and submits a property at `/submit` → status **Pending
+Approval** → admin reviews in `/admin` → on approval the property gets a permanent code
+(`SKY-PRM-0001` / `SKY-RES-0001`) and is published → customers browse `/properties` and request
+more information → a lead is created with the property code → admin calls / WhatsApps the
+customer and tracks the lead → the property is eventually reserved, sold or archived.
 
 - Only **Published** properties are public. Seller details are never rendered on public pages.
 - Properties are never deleted; archive them instead.
@@ -27,8 +27,8 @@ Set `ADMIN_PASSWORD` (and optionally `SESSION_SECRET`) in `.env.local` to enable
 
 Postgres on Neon (`src/lib/store.ts`, schema in `src/lib/schema.sql`). Pull `DATABASE_URL` with
 `vercel env pull`, then run `npm run db:setup` to create or migrate the tables. This is safe to re-run,
-and it loads the sample data from `src/lib/seed.ts` only into an empty database. Photos are stored in
-Vercel Blob (`BLOB_READ_WRITE_TOKEN`).
+and it loads the sample data from `src/lib/seed.ts` only into an empty database. Photos and Primary
+listing documents are stored in Vercel Blob (`BLOB_READ_WRITE_TOKEN`).
 
 For load and pagination testing, `scripts/load-test-units.sql` adds 80 extra properties (ids
 `load-001`…`load-080`) across every location and status, including rentals. Run it in any SQL client.
@@ -36,10 +36,13 @@ The file ends with the statements that remove the set again.
 
 ## Features
 
-- [Home page sections](docs/homepage.md): the admin sets Premium/Resale and ticks "Show on the home page" to put a property first.
+- [Home page sections](docs/homepage.md): the admin sets Primary/Resale and ticks "Show on the home page" to put a property first.
+- [Listing types](docs/listing-types.md): Primary (formerly Premium) and Resale, and the home search tabs (Primary | Resale | Rent, no Buy tab).
+- [Primary or Resale on /submit](docs/primary-documents.md): sellers pick the listing type first; Primary submissions can attach a brochure (PDF) and payment plan (PDF/Excel), uploaded straight to Vercel Blob and shown only to the admin.
 - [Admin in Arabic and English](docs/admin-language.md): right-to-left and translation rules for the dashboard.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
+- [Floor number](docs/floor.md): optional floor (0 = ground, up to 45) on the property form, shown in the property page's key facts.
 - [Forms](docs/forms.md): digits-only numeric fields with live range checks, title/description character counters, failed requests that never clear a form or crash the page, and the dropdown chevron.
 - [Photo uploads](docs/photo-uploads.md): every image field accepts photos up to 6 MB, with a friendly message naming any larger file.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.
@@ -63,9 +66,9 @@ data builders are in `src/test/fixtures.ts`.
 
 ## Rate limiting
 
-Every request is rate limited per IP in `src/proxy.ts`, and admin login attempts are capped at 5
-per 15 minutes. Navbar links ignore clicks on the page that is already open, and they highlight
-the current page. See [docs/rate-limiting.md](docs/rate-limiting.md), which also covers the
+Every request is rate limited per IP in `src/proxy.ts`, admin login attempts are capped at 5
+per 15 minutes, and document uploads at 10 per 10 minutes. Navbar links ignore clicks on the page
+that is already open, and they highlight the current page. See [docs/rate-limiting.md](docs/rate-limiting.md), which also covers the
 recommended Vercel Firewall rule.
 
 ## Tests

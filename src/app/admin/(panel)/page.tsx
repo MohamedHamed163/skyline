@@ -15,7 +15,7 @@ export default async function AdminDashboardPage() {
     { label: a.stats.total, value: properties.length, href: "/admin/properties" },
     { label: a.stats.published, value: count((p) => p.status === "published"), href: "/admin/properties?status=published" },
     { label: a.stats.pending, value: count((p) => p.status === "pending"), href: "/admin/properties?status=pending" },
-    { label: a.stats.premium, value: count((p) => p.listingType === "premium"), href: "/admin/properties?listing=premium" },
+    { label: a.stats.primary, value: count((p) => p.listingType === "primary"), href: "/admin/properties?listing=primary" },
     { label: a.stats.resale, value: count((p) => p.listingType === "resale"), href: "/admin/properties?listing=resale" },
     { label: a.stats.leadsToday, value: leads.filter((l) => isToday(l.createdAt)).length, href: "/admin/leads" },
     { label: a.stats.uncontacted, value: leads.filter((l) => l.status === "new").length, href: "/admin/leads?status=new" },

@@ -52,7 +52,15 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS rent_period text;
 -- Admin-picked listings shown first on the home page (docs/homepage.md).
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS featured boolean NOT NULL DEFAULT false;
 
+-- Floor number, optional (docs/floor.md): 0 is the ground floor, NULL when not given.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS floor integer;
+
+-- Brochure and payment plan sent with a Primary submission (docs/primary-documents.md):
+-- [{ "kind": "brochure" | "paymentPlan", "url": "...", "name": "..." }]. Admin-only.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS documents jsonb NOT NULL DEFAULT '[]';
+
 -- Property-code counters. Sequences never hand out the same number twice.
+-- property_code_premium counts primary listings: it keeps its old name so the numbers carry on.
 CREATE SEQUENCE IF NOT EXISTS property_code_premium;
 CREATE SEQUENCE IF NOT EXISTS property_code_resale;
 CREATE SEQUENCE IF NOT EXISTS property_code_rent;
@@ -85,3 +93,6 @@ DO $$ BEGIN
   ALTER TABLE properties ADD CONSTRAINT properties_location_fkey FOREIGN KEY (location) REFERENCES locations (id);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- "Premium" listings were renamed "Primary" (docs/listing-types.md). Codes (SKY-PRM-…) are unchanged.
+UPDATE properties SET listing_type = 'primary' WHERE listing_type = 'premium';

@@ -18,6 +18,7 @@ export function NumberField({
   required = true,
   grouped = false,
   defaultValue,
+  placeholder,
 }: {
   id: string;
   name: string;
@@ -25,6 +26,7 @@ export function NumberField({
   required?: boolean;
   grouped?: boolean;
   defaultValue?: number;
+  placeholder?: string;
 }) {
   const t = useDict().fields.errors;
   const ref = useRef<HTMLInputElement>(null);
@@ -71,6 +73,7 @@ export function NumberField({
         autoComplete="off"
         dir="ltr"
         value={shown}
+        placeholder={placeholder}
         onChange={onChange}
         onBlur={() => setTouched(true)}
         onInvalid={() => setTouched(true)}

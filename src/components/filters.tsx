@@ -52,7 +52,7 @@ export async function Filters({ query, compounds }: { query: SearchQuery; compou
           </Section>
         ) : (
           <Section title={f.purpose}>
-            <Chips name="listing" options={["", ...LISTING_TYPES] as string[]} selected={[query.listing ?? ""]} labels={(v) => (v ? t.listing[v as "premium" | "resale"] : f.all)} />
+            <Chips name="listing" options={["", ...LISTING_TYPES] as string[]} selected={[query.listing ?? ""]} labels={(v) => (v ? t.listing[v as "primary" | "resale"] : f.all)} />
           </Section>
         )}
 
