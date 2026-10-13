@@ -9,6 +9,7 @@ import { LeadForm } from "@/components/lead-form";
 import { PropertyCard, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { ShareButton } from "@/components/share-button";
 import { cairoToday } from "@/lib/availability";
+import { descriptionSections } from "@/lib/descriptions";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
@@ -46,6 +47,8 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
     // properties cached before the field existed, which have no floor key at all.
     ...(property.floor == null ? [] : [{ icon: <StairsIcon />, label: p.floor, value: property.floor === 0 ? p.ground : property.floor }]),
   ];
+  // Primary listings: "About the project" and "About the developer"; others: one "Overview".
+  const headings = { overview: p.overview, project: p.aboutProject, developer: p.aboutDeveloper };
 
   return (
     <div className="container-page py-6">
@@ -97,12 +100,12 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
             ))}
           </dl>
 
-          {property.description && (
-            <>
-              <h2 className="mt-8 text-lg font-bold">{p.overview}</h2>
-              <p className="mt-2 whitespace-pre-line leading-relaxed text-cocoa">{property.description}</p>
-            </>
-          )}
+          {descriptionSections(property).map((s) => (
+            <section key={s.kind}>
+              <h2 className="mt-8 text-lg font-bold">{headings[s.kind]}</h2>
+              <p className="mt-2 whitespace-pre-line leading-relaxed text-cocoa">{s.text}</p>
+            </section>
+          ))}
 
           {property.features.length > 0 && (
             <>

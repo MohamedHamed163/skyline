@@ -79,6 +79,17 @@ describe("applySearch", () => {
     expect(applySearch([inCairo, inGiza], parseSearch({ q: "giza" }))).toEqual([inGiza]);
     expect(applySearch([inCairo, inGiza], parseSearch({ q: "الجيزة" }))).toEqual([inGiza]);
   });
+
+  it("finds Primary listings by their developer description", () => {
+    const byDeveloper = makeProperty({ id: "c", listingType: "primary", developerDescription: "Built by Sample Developments since 2008." });
+    expect(applySearch([inCairo, byDeveloper], parseSearch({ q: "sample developments" }))).toEqual([byDeveloper]);
+  });
+
+  it("still searches properties cached before the developer description existed", () => {
+    const old: Partial<typeof inCairo> = { ...inCairo, description: "Quiet street" };
+    delete old.developerDescription;
+    expect(applySearch([old as typeof inCairo], parseSearch({ q: "quiet" }))).toEqual([old]);
+  });
 });
 
 describe("locationStats", () => {

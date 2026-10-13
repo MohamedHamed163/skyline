@@ -56,7 +56,7 @@ export function caretAfterDigits(formatted: string, n: number) {
 // ---- Text length limits ----
 
 /** Maximum characters for the free-text property fields. */
-export const TEXT_LIMITS = { title: 120, description: 2000 } as const;
+export const TEXT_LIMITS = { title: 120, description: 2000, developerDescription: 2000 } as const;
 
 export type CounterTone = "normal" | "near" | "full";
 

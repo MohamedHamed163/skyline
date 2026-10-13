@@ -126,7 +126,10 @@ export type Property = {
   /** 0 is the ground floor; null when not given (villas and houses usually have none). */
   floor: number | null;
   price: number;
+  /** The listing's description. On Primary listings it describes the project ("About the project"). */
   description: string;
+  /** "About the developer", Primary sale listings only; "" otherwise (docs/developer-description.md). */
+  developerDescription: string;
   features: string[];
   photos: string[];
   /** Private: the brochure and payment plan sent with a Primary submission. Admin-only. */

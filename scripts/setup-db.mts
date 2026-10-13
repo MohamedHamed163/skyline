@@ -36,6 +36,7 @@ if (count > 0) {
       floor: p.floor,
       price: p.price,
       description: p.description,
+      developer_description: p.developerDescription,
       features: sql.json(p.features),
       photos: sql.json(p.photos),
       seller_type: p.seller.type,

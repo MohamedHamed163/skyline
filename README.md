@@ -42,6 +42,7 @@ The file ends with the statements that remove the set again.
 - [Admin in Arabic and English](docs/admin-language.md): right-to-left and translation rules for the dashboard.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
+- [Project and developer descriptions](docs/developer-description.md): Primary listings have "About the project" and "About the developer" texts, both shown on the property page.
 - [Floor number](docs/floor.md): optional floor (0 = ground, up to 45) on the property form, shown in the property page's key facts.
 - [Forms](docs/forms.md): digits-only numeric fields with live range checks, title/description character counters, failed requests that never clear a form or crash the page, and the dropdown chevron.
 - [Photo uploads](docs/photo-uploads.md): every image field accepts photos up to 6 MB, with a friendly message naming any larger file.

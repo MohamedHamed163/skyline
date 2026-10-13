@@ -110,7 +110,7 @@ export function applySearch(properties: Property[], s: SearchQuery) {
   const q = s.q.toLowerCase();
   const out = properties.filter(
     (p) =>
-      (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description].join(" ").toLowerCase().includes(q)) &&
+      (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description, p.developerDescription].join(" ").toLowerCase().includes(q)) &&
       p.purpose === s.purpose &&
       (!s.period || p.rentPeriod === s.period) &&
       (!s.listing || p.listingType === s.listing) &&

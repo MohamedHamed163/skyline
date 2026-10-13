@@ -3,6 +3,12 @@
 The public listing page at **`/properties/[code]`** (published properties only; seller details are
 never shown).
 
+## Descriptions
+
+Under the key facts, Resale listings and rentals show their description as "Overview". Primary
+listings show "About the project" and then "About the developer", each only when filled in. See
+[developer-description.md](developer-description.md).
+
 ## Location section
 
 Below the features, the "Location" section shows:

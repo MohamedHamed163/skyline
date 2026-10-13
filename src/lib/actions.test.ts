@@ -274,6 +274,74 @@ describe("text length limits", () => {
   });
 });
 
+describe("developer description (Primary only)", () => {
+  const fields = {
+    title: "New villa",
+    type: "villa",
+    location: "new-cairo",
+    price: "9000000",
+    area: "300",
+    bedrooms: "4",
+    bathrooms: "3",
+    sellerType: "broker",
+    sellerName: "Broker",
+    sellerPhone: "+20 100 000 0000",
+    photos: JPEG,
+    description: "Gated compound with a clubhouse, delivery 2028.",
+  };
+  const developerDescription = "  Sample Developments has delivered six compounds.  ";
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("saves the project and developer descriptions with a Primary submission", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary", developerDescription })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(
+      expect.objectContaining({ description: fields.description, developerDescription: "Sample Developments has delivered six compounds." }),
+    );
+  });
+
+  it("never keeps a developer description on a Resale submission", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "resale", developerDescription })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ description: fields.description, developerDescription: "" }));
+  });
+
+  it("is optional: a Primary submission without it is saved with an empty one", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary" })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ developerDescription: "" }));
+  });
+
+  it("accepts 2,000 characters and rejects more, naming the field", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary", developerDescription: "d".repeat(2000) })))?.ok).toBe(true);
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", developerDescription: "d".repeat(2001) }))).toEqual({
+      ok: false,
+      message: "About the developer can be at most 2,000 characters.",
+    });
+    expect(store.createProperty).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls the description \"About the project\" in errors on Primary listings only", async () => {
+    const long = "d".repeat(2001);
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary", description: long })))?.message).toBe("About the project can be at most 2,000 characters.");
+    expect((await submitProperty(null, form({ ...fields, listingType: "resale", description: long })))?.message).toBe("Description can be at most 2,000 characters.");
+  });
+
+  it("ignores an over-long developer description on a Resale submission, since it isn't kept", async () => {
+    expect((await submitProperty(null, form({ ...fields, listingType: "resale", developerDescription: "d".repeat(2001) })))?.ok).toBe(true);
+  });
+
+  it("lets the admin edit it on a Primary sale listing", async () => {
+    expect((await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "primary", developerDescription: "Updated." })))?.ok).toBe(true);
+    expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.objectContaining({ developerDescription: "Updated." }));
+  });
+
+  it("clears it when the admin switches the listing to Resale or Rent", async () => {
+    await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "resale", developerDescription }));
+    await updateProperty("p1", null, form({ ...fields, purpose: "rent", rentPeriod: "month", listingType: "primary", developerDescription }));
+    expect(store.updateProperty).toHaveBeenNthCalledWith(1, "p1", expect.objectContaining({ developerDescription: "" }));
+    expect(store.updateProperty).toHaveBeenNthCalledWith(2, "p1", expect.objectContaining({ developerDescription: "" }));
+  });
+});
+
 describe("listing type and home page (admin-only)", () => {
   const fields = {
     title: "Nice flat",

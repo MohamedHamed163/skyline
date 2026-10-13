@@ -93,7 +93,7 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mod
 
       {(admin || listingType) && (
         <>
-          <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} />
+          <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} listingType={listingType ?? undefined} />
 
           <fieldset>
             <legend className="mb-1 text-lg font-bold">{t.submit.images}</legend>

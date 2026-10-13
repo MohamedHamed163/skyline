@@ -34,6 +34,8 @@ every form in the site, not just this one), and how dropdowns look across the si
 ### Title and description length
 
 - The property title is limited to 120 characters and the description to 2,000 (`TEXT_LIMITS`).
+  Primary listings' "About the developer" text is also limited to 2,000
+  ([developer-description.md](developer-description.md)).
   The browser stops typing at the limit and trims a paste to fit.
 - A live counter under each field shows `45 / 120`. It turns amber from 90% of the limit and red at
   the limit. It always reads left to right, in Arabic too, and screen readers hear "{n} of {max}

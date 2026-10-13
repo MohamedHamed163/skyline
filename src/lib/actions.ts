@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { checkPassword, endSession, isAdmin, startSession } from "./auth";
 import { applyRange, cairoToday, isDay } from "./availability";
 import { CACHE_TAGS } from "./cache-tags";
+import { hasDeveloperDescription } from "./descriptions";
 import { readDocuments } from "./document-limits";
 import { verifyDocument } from "./documents";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
@@ -61,10 +62,17 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
   const place = (await store.getLocations()).find((l) => l.id === location);
   const validLocation = Boolean(place && (admin || !place.archived));
   if (!title || (!sellerName && !company)) return { error: t.propertyMissing };
+  // Primary listings describe the project and the developer separately (docs/developer-description.md).
+  const primary = Boolean(listingType && hasDeveloperDescription({ purpose, listingType }));
   // Over-long text is rejected, not silently cut off (the form's counters stop it at the limit).
-  for (const key of ["title", "description"] as const) {
+  const texts = {
+    title: dict.fields.title,
+    description: primary ? dict.fields.projectDescription : dict.fields.description,
+    ...(primary && { developerDescription: dict.fields.developerDescription }),
+  };
+  for (const [key, field] of Object.entries(texts) as [keyof typeof TEXT_LIMITS, string][]) {
     if (String(fd.get(key) ?? "").trim().length > TEXT_LIMITS[key]) {
-      return { error: fmt(t.textTooLong, { field: dict.fields[key], max: groupDigits(String(TEXT_LIMITS[key])) }) };
+      return { error: fmt(t.textTooLong, { field, max: groupDigits(String(TEXT_LIMITS[key])) }) };
     }
   }
   if (
@@ -113,6 +121,8 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       ...numbers,
       floor: floor ? Number(floor) : null,
       description: text(fd, "description", TEXT_LIMITS.description),
+      // Only Primary listings keep it, so switching a listing to Resale or Rent clears it.
+      developerDescription: primary ? text(fd, "developerDescription", TEXT_LIMITS.developerDescription) : "",
       features: fd.getAll("features").map(String).filter((f) => (FEATURES as readonly string[]).includes(f)),
       seller: {
         type: sellerType,

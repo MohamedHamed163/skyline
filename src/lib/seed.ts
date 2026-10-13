@@ -12,12 +12,21 @@ const SELLERS: Record<string, Seller> = {
 
 // Location names live in the locations table, so seed rows only carry the location id.
 type SeedProperty = Omit<Property, "locationName">;
-type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates"> & { age: number; featured?: boolean; floor?: number };
+type SeedInput = Omit<
+  SeedProperty,
+  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription"
+> & {
+  age: number;
+  featured?: boolean;
+  floor?: number;
+  developerDescription?: string;
+};
 
-const property = ({ age, featured = false, floor, ...p }: SeedInput): SeedProperty => ({
+const property = ({ age, featured = false, floor, developerDescription = "", ...p }: SeedInput): SeedProperty => ({
   ...p,
   featured,
   floor: floor ?? null,
+  developerDescription,
   documents: [],
   bookedDates: [],
   purpose: "sale",
@@ -46,6 +55,7 @@ export function seedProperties(): SeedProperty[] {
       price: 18_500_000,
       description:
         "A bright, contemporary villa with floor-to-ceiling glass, a private pool and a landscaped garden. Open-plan living on the ground floor, five bedrooms upstairs and a roof terrace.",
+      developerDescription: "Sample Developments has delivered six gated communities in East Cairo since 2008, all handed over on schedule.",
       features: ["Private pool", "Garden", "Parking", "Security"],
       photos: ["/listings/villa-1.jpg", "/listings/apartment-3.jpg"],
       seller: SELLERS.a,
@@ -108,6 +118,7 @@ export function seedProperties(): SeedProperty[] {
       price: 24_000_000,
       description:
         "Standalone villa on a corner plot with warm timber ceilings, a wide terrace and a full-length pool. Staff quarters and covered parking for three cars.",
+      developerDescription: "Example Builders is a family-run developer known for low-density villa compounds west of Cairo.",
       features: ["Private pool", "Garden", "Parking"],
       photos: ["/listings/villa-3.jpg"],
       seller: SELLERS.a,

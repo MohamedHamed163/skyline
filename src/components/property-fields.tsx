@@ -4,6 +4,7 @@ import { useState } from "react";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { LimitedText } from "@/components/limited-text";
 import { NumberField } from "@/components/number-field";
+import { hasDeveloperDescription } from "@/lib/descriptions";
 import { locationLabel } from "@/lib/locations";
 import { PROPERTY_LIMITS, TEXT_LIMITS } from "@/lib/validation";
 import {
@@ -13,6 +14,7 @@ import {
   PURPOSES,
   RENT_PERIODS,
   SELLER_TYPES,
+  type ListingType,
   type Location,
   type Property,
   type Purpose,
@@ -21,14 +23,30 @@ import {
 
 // Property + seller inputs shared by the public submission form and the admin forms.
 // admin = true unlocks the rent purpose, the "Skyline (company)" seller, primary/resale and
-// "show on home page". On /submit the seller picks primary/resale above these fields (PropertyForm).
+// "show on home page". On /submit the seller picks primary/resale above these fields (PropertyForm)
+// and passes it in as listingType.
 // locations: the choices for the location field (see selectableLocations).
-export function PropertyFields({ locations, defaults, admin = false, defaultPurpose = "sale" }: { locations: Location[]; defaults?: Property; admin?: boolean; defaultPurpose?: Purpose }) {
+export function PropertyFields({
+  locations,
+  defaults,
+  admin = false,
+  defaultPurpose = "sale",
+  listingType,
+}: {
+  locations: Location[];
+  defaults?: Property;
+  admin?: boolean;
+  defaultPurpose?: Purpose;
+  listingType?: ListingType;
+}) {
   const t = useDict();
   const f = t.fields;
   const d = defaults;
   const [purpose, setPurpose] = useState<Purpose>(d?.purpose ?? defaultPurpose);
   const [rentPeriod, setRentPeriod] = useState<RentPeriod>(d?.rentPeriod ?? "night");
+  const [adminListingType, setAdminListingType] = useState<ListingType>(d?.listingType ?? "resale");
+  // Primary listings get "About the project" and "About the developer" (docs/developer-description.md).
+  const primary = hasDeveloperDescription({ purpose, listingType: (admin ? adminListingType : listingType) ?? "resale" });
   const [sellerType, setSellerType] = useState(d?.seller.type ?? (admin ? "company" : "broker"));
   const company = admin && sellerType === "company";
 
@@ -71,7 +89,7 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
             <label className="label" htmlFor="listingType">
               {f.listingType}
             </label>
-            <select id="listingType" name="listingType" required defaultValue={d?.listingType ?? "resale"} className="field">
+            <select id="listingType" name="listingType" required value={adminListingType} onChange={(e) => setAdminListingType(e.target.value as ListingType)} className="field">
               {LISTING_TYPES.map((v) => (
                 <option key={v} value={v}>
                   {t.listing[v]}
@@ -160,9 +178,34 @@ export function PropertyFields({ locations, defaults, admin = false, defaultPurp
         </div>
         <div className="sm:col-span-2">
           <label className="label" htmlFor="description">
-            {f.description}
+            {primary ? f.projectDescription : f.description}
           </label>
-          <LimitedText id="description" name="description" max={TEXT_LIMITS.description} multiline rows={4} defaultValue={d?.description} />
+          <LimitedText
+            id="description"
+            name="description"
+            max={TEXT_LIMITS.description}
+            multiline
+            rows={4}
+            defaultValue={d?.description}
+            placeholder={primary ? f.projectDescriptionPlaceholder : undefined}
+          />
+        </div>
+        {/* Kept mounted when the listing isn't Primary, so switching back keeps the text; disabled, so
+            only a Primary listing sends it. */}
+        <div className="sm:col-span-2" hidden={!primary}>
+          <label className="label" htmlFor="developerDescription">
+            {f.developerDescription}
+          </label>
+          <LimitedText
+            id="developerDescription"
+            name="developerDescription"
+            max={TEXT_LIMITS.developerDescription}
+            multiline
+            rows={4}
+            defaultValue={d?.developerDescription}
+            placeholder={f.developerDescriptionPlaceholder}
+            disabled={!primary}
+          />
         </div>
         <div className="sm:col-span-2">
           <p className="label">

@@ -25,6 +25,7 @@ export function LimitedText({
   multiline?: boolean;
   defaultValue?: string;
   required?: boolean;
+  disabled?: boolean;
   placeholder?: string;
   rows?: number;
 }) {
