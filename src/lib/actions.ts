@@ -12,6 +12,7 @@ import { verifyDocument } from "./documents";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
 import { uploadPhotos } from "./photos";
+import { readPriceRules } from "./pricing";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
 import { COMPANY_DEFAULT_NAME } from "./sellers";
 import * as store from "./store";
@@ -103,6 +104,15 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     const { min, max } = PROPERTY_LIMITS.floor;
     return { error: fmt(t.numberRange, { field: dict.fields.floor, min: String(min), max: String(max) }) };
   }
+  // Rentals: optional weekend-night price (nightly only) and special prices (docs/rental-pricing.md).
+  const nightly = purpose === "rent" && rentPeriod === "night";
+  const weekendPrice = nightly ? text(fd, "weekendPrice") : "";
+  if (checkWholeNumber(weekendPrice, PROPERTY_LIMITS.price, false)) {
+    const { min, max } = PROPERTY_LIMITS.price;
+    return { error: fmt(t.numberRange, { field: fmt(dict.fields.weekendPrice, { currency: dict.currency }), min: groupDigits(String(min)), max: groupDigits(String(max)) }) };
+  }
+  const priceRules = purpose === "rent" ? readPriceRules(String(fd.get("priceRules") ?? ""), rentPeriod, cairoToday()) : [];
+  if (!priceRules) return { error: t.priceRulesFailed };
   if (!validPhone(sellerPhone) && !(company && !sellerPhone)) return { error: t.badPhone };
   if (sellerWhatsapp && !validPhone(sellerWhatsapp)) {
     return { error: t.badWhatsapp };
@@ -119,6 +129,8 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       location,
       compound: text(fd, "compound", 80),
       ...numbers,
+      weekendPrice: weekendPrice ? Number(weekendPrice) : null,
+      priceRules,
       floor: floor ? Number(floor) : null,
       description: text(fd, "description", TEXT_LIMITS.description),
       // Only Primary listings keep it, so switching a listing to Resale or Rent clears it.

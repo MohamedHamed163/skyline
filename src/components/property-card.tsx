@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { AreaIcon, BathIcon, BedIcon, PhotoIcon, PinIcon } from "@/components/icons";
-import { formatPrice } from "@/lib/format";
+import { cairoToday } from "@/lib/availability";
 import { fmt, getDict, type Dict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
+import { priceLabel, type Pricing } from "@/lib/pricing";
 import type { ListingType, Property } from "@/lib/types";
 
 // Photos can be bundled files or uploads stored as URLs, so a plain <img> is used.
@@ -21,10 +22,9 @@ export function ListingBadge({ type, label, className = "" }: { type: ListingTyp
   );
 }
 
-/** "5,000 EGP / night" for rentals, plain price for sale. */
-export function priceText(t: Dict, p: Pick<Property, "price" | "purpose" | "rentPeriod">) {
-  const base = formatPrice(p.price, t.currency);
-  return p.purpose === "rent" && p.rentPeriod ? `${base} ${fmt(t.per, { period: t.rentPeriod[p.rentPeriod] })}` : base;
+/** "5,000 EGP / night" for rentals ("From 3,000 EGP / night" when the price changes by date), plain price for sale. */
+export function priceText(t: Dict, p: Pricing) {
+  return priceLabel(t, p, cairoToday());
 }
 
 export function PurposeBadge({ t, p, className = "" }: { t: Dict; p: Pick<Property, "purpose" | "listingType">; className?: string }) {

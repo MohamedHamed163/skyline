@@ -1,7 +1,8 @@
 # Sorting search results
 
 The "Sort by" dropdown on `/properties` orders the results by newest (default), price low → high,
-price high → low or largest area.
+price high → low or largest area. Rentals whose price changes by date sort (and filter) by their
+"From" price, the one on their card ([rental-pricing.md](rental-pricing.md)).
 
 ## User behaviour
 

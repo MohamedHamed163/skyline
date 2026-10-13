@@ -18,6 +18,7 @@ every form in the site, not just this one), and how dropdowns look across the si
   | Field | Min | Max |
   | --- | --- | --- |
   | Price (EGP, sale or rent) | 1 | 1,000,000,000 |
+  | Weekend and special rental prices (EGP; see [rental-pricing.md](rental-pricing.md)) | 1 | 1,000,000,000 |
   | Area (m²) | 1 | 5,000 |
   | Bedrooms | 0 | 50 |
   | Bathrooms | 0 | 50 |
@@ -85,9 +86,9 @@ No change here. `area`, `bedrooms`, `bathrooms` and `floor` (nullable) are `inte
 | File | Role |
 | --- | --- |
 | `src/lib/validation.ts` | `PROPERTY_LIMITS`, `TEXT_LIMITS`, `counterTone`, `checkWholeNumber`, `digitsOnly` / `toLatinDigits`, `maxDigits`, `groupDigits`, `caretAfterDigits`. Shared by the client field and the server action. |
-| `src/components/number-field.tsx` | `NumberField`: digits-only controlled input, live error, `setCustomValidity` to block submit, hidden input carrying the raw digits under `name`. |
+| `src/components/number-field.tsx` | `NumberField`: digits-only controlled input, live error, `setCustomValidity` to block submit, hidden input carrying the raw digits under `name`, optional `onValueChange`. Its typing logic is the `useDigits` hook, also used by the special-price boxes ([rental-pricing.md](rental-pricing.md)). |
 | `src/components/limited-text.tsx` | `LimitedText`: input or textarea with `maxLength` and the live counter. |
-| `src/components/property-fields.tsx` | Uses `NumberField` for price, area, bedrooms, bathrooms and floor (optional), and `LimitedText` for title and description. |
+| `src/components/property-fields.tsx` | Uses `NumberField` for price, weekend price (nightly rentals, optional), area, bedrooms, bathrooms and floor (optional), and `LimitedText` for title and description. |
 | `src/components/property-form.tsx`, `src/components/edit-property-form.tsx` | Submit from `onSubmit` + `startTransition` instead of `<form action>`, because React resets a form after its action runs, even when it fails. |
 | `src/lib/safe-action.ts` | `succeeded`: runs a request and returns false if it throws, re-throwing Next.js redirects via `unstable_rethrow`. `withFailureMessage`: wraps a server action for `useActionState` so a thrown request becomes `{ ok: false, message }`. |
 | `src/components/action-form.tsx` | `ActionForm`: `<form>` for server actions that return nothing. Submits from `onSubmit` with the clicked button (`submitter`), disables its controls while pending, optional `confirm`, inline error on failure. |

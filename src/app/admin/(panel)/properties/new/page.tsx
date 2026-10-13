@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PropertyForm } from "@/components/property-form";
+import { cairoToday } from "@/lib/availability";
 import { getDict } from "@/lib/i18n";
 import { getActiveLocations } from "@/lib/store";
 
@@ -15,7 +16,7 @@ export default async function AdminNewPropertyPage({ searchParams }: { searchPar
       <h1 className="mt-3 text-2xl font-bold">{rent ? a.newRentalTitle : a.newTitle}</h1>
       <p className="mt-1 text-sm text-cocoa">{rent ? t.fields.rentHint : a.newHint}</p>
       <div className="card mt-6 p-6 sm:p-8">
-        <PropertyForm mode="admin" locations={locations} defaultPurpose={rent ? "rent" : "sale"} />
+        <PropertyForm mode="admin" locations={locations} defaultPurpose={rent ? "rent" : "sale"} today={cairoToday()} />
       </div>
     </div>
   );

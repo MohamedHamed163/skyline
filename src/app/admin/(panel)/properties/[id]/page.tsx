@@ -196,7 +196,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
 
       <section className="card p-5 sm:p-8">
         <h2 className="mb-6 text-xl font-bold">{a.editProperty}</h2>
-        <EditPropertyForm property={property} locations={selectableLocations(locations, property.location)} />
+        <EditPropertyForm property={property} locations={selectableLocations(locations, property.location)} today={cairoToday()} />
       </section>
     </div>
   );

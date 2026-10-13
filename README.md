@@ -48,6 +48,7 @@ The file ends with the statements that remove the set again.
 - [Forms](docs/forms.md): digits-only numeric fields with live range checks, title/description character counters, failed requests that never clear a form or crash the page, and the dropdown chevron.
 - [Photo uploads](docs/photo-uploads.md): every image field accepts photos up to 6 MB, with a friendly message naming any larger file.
 - [Rental booking calendar](docs/rental-calendar.md): the admin blocks booked days on a rental's calendar; the property page shows customers which days are free.
+- [Rental prices by date](docs/rental-pricing.md): weekend-night prices (Thursday and Friday) and special prices for seasons and holidays, set on a calendar in the rental form; customers see "From …" prices and each night's price.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.
 
 ## Caching

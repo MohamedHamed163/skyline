@@ -4,6 +4,8 @@ import { useState } from "react";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { LimitedText } from "@/components/limited-text";
 import { NumberField } from "@/components/number-field";
+import { SpecialPrices } from "@/components/special-prices";
+import type { Day } from "@/lib/availability";
 import { hasDeveloperDescription } from "@/lib/descriptions";
 import { locationLabel } from "@/lib/locations";
 import { PROPERTY_LIMITS, TEXT_LIMITS } from "@/lib/validation";
@@ -26,18 +28,21 @@ import {
 // "show on home page". On /submit the seller picks primary/resale above these fields (PropertyForm)
 // and passes it in as listingType.
 // locations: the choices for the location field (see selectableLocations).
+// today: today in Cairo, for the rental special-price calendar (admin forms only).
 export function PropertyFields({
   locations,
   defaults,
   admin = false,
   defaultPurpose = "sale",
   listingType,
+  today,
 }: {
   locations: Location[];
   defaults?: Property;
   admin?: boolean;
   defaultPurpose?: Purpose;
   listingType?: ListingType;
+  today?: Day;
 }) {
   const t = useDict();
   const f = t.fields;
@@ -48,6 +53,11 @@ export function PropertyFields({
   // Primary listings get "About the project" and "About the developer" (docs/developer-description.md).
   const primary = hasDeveloperDescription({ purpose, listingType: (admin ? adminListingType : listingType) ?? "resale" });
   const [sellerType, setSellerType] = useState(d?.seller.type ?? (admin ? "company" : "broker"));
+  // Rental prices as typed, so the special-price calendar shows each night's price live (docs/rental-pricing.md).
+  const [standardPrice, setStandardPrice] = useState(d?.price ?? 0);
+  const [weekendPrice, setWeekendPrice] = useState<number | null>(d?.weekendPrice ?? null);
+  const rent = purpose === "rent";
+  const nightly = rent && rentPeriod === "night";
   const company = admin && sellerType === "company";
 
   return (
@@ -169,13 +179,34 @@ export function PropertyFields({
             <NumberField id="floor" name="floor" limits={PROPERTY_LIMITS.floor} required={false} defaultValue={d?.floor ?? undefined} placeholder={f.floorPlaceholder} />
           </div>
         </div>
-        <div className="sm:col-span-2">
+        <div className={nightly ? undefined : "sm:col-span-2"}>
           <label className="label" htmlFor="price">
-            {fmt(f.price, { currency: t.currency })}
-            {purpose === "rent" && <span className="font-normal text-cocoa"> — {f.rentPeriodField.toLowerCase()} {t.rentPeriod[rentPeriod]}</span>}
+            {rent ? fmt(f.standardPrice, { period: t.rentPeriod[rentPeriod], currency: t.currency }) : fmt(f.price, { currency: t.currency })}
           </label>
-          <NumberField id="price" name="price" limits={PROPERTY_LIMITS.price} grouped defaultValue={d?.price} />
+          <NumberField id="price" name="price" limits={PROPERTY_LIMITS.price} grouped defaultValue={d?.price} onValueChange={(v) => setStandardPrice(Number(v))} />
         </div>
+        {/* Rental pricing stays mounted when it doesn't apply, so switching back keeps what was typed;
+            disabled, so it is neither sent nor validated then. */}
+        <fieldset className="min-w-0" disabled={!nightly} hidden={!nightly}>
+          <label className="label" htmlFor="weekendPrice">
+            {fmt(f.weekendPrice, { currency: t.currency })} <span className="font-normal text-cocoa">{t.optional}</span>
+          </label>
+          <NumberField
+            id="weekendPrice"
+            name="weekendPrice"
+            limits={PROPERTY_LIMITS.price}
+            required={false}
+            grouped
+            defaultValue={d?.weekendPrice ?? undefined}
+            onValueChange={(v) => setWeekendPrice(v ? Number(v) : null)}
+          />
+          <p className="mt-1 text-xs text-cocoa">{f.weekendHint}</p>
+        </fieldset>
+        {admin && today && (
+          <fieldset className="min-w-0 rounded-xl border border-line p-4 sm:col-span-2 sm:p-5" disabled={!rent} hidden={!rent}>
+            <SpecialPrices unit={rentPeriod} standard={standardPrice} weekend={nightly ? weekendPrice : null} defaults={d} today={today} />
+          </fieldset>
+        )}
         <div className="sm:col-span-2">
           <label className="label" htmlFor="description">
             {primary ? f.projectDescription : f.description}

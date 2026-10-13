@@ -1,3 +1,5 @@
+import { cairoToday, type Day } from "./availability";
+import { listPrice } from "./pricing";
 import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS, toListingType, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose, type RentPeriod } from "./types";
 
 // Public search: parses URL params, filters/sorts published properties, paginates,
@@ -106,8 +108,14 @@ export function sortHrefs(s: SearchQuery): Record<Sort, string> {
   return Object.fromEntries(SORTS.map((sort) => [sort, searchHref(s, { sort })])) as Record<Sort, string>;
 }
 
-export function applySearch(properties: Property[], s: SearchQuery) {
+/**
+ * Filters and sorts published properties. Rentals whose price changes by date are filtered and
+ * sorted by their "From" price, the lowest from `today` on (docs/rental-pricing.md).
+ */
+export function applySearch(properties: Property[], s: SearchQuery, today: Day = cairoToday()) {
   const q = s.q.toLowerCase();
+  const prices = new Map(properties.map((p) => [p, listPrice(p, today)]));
+  const price = (p: Property) => prices.get(p) ?? p.price;
   const out = properties.filter(
     (p) =>
       (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description, p.developerDescription].join(" ").toLowerCase().includes(q)) &&
@@ -119,16 +127,16 @@ export function applySearch(properties: Property[], s: SearchQuery) {
       (!s.compound || p.compound === s.compound) &&
       (!s.beds || p.bedrooms >= s.beds) &&
       (!s.baths || p.bathrooms >= s.baths) &&
-      (!s.minPrice || p.price >= s.minPrice) &&
-      (!s.maxPrice || p.price <= s.maxPrice) &&
+      (!s.minPrice || price(p) >= s.minPrice) &&
+      (!s.maxPrice || price(p) <= s.maxPrice) &&
       (!s.minArea || p.area >= s.minArea) &&
       (!s.maxArea || p.area <= s.maxArea) &&
       s.features.every((f) => p.features.includes(f)),
   );
   const by: Record<Sort, (a: Property, b: Property) => number> = {
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
-    price_asc: (a, b) => a.price - b.price,
-    price_desc: (a, b) => b.price - a.price,
+    price_asc: (a, b) => price(a) - price(b),
+    price_desc: (a, b) => price(b) - price(a),
     area_desc: (a, b) => b.area - a.area,
   };
   return out.sort(by[s.sort]);

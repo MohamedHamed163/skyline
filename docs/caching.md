@@ -13,6 +13,9 @@ connections. The pool holds only 5 connections per instance (`src/lib/db.ts`).
 
 - **One list feeds the whole public site.** Search, filters, sorting and pagination run in memory
   over the cached list (`src/lib/search.ts`), so `?type=villa&page=3` adds no query.
+- **Fields added later are optional in old entries.** A list cached before a field existed (booked
+  days, weekend and special prices) has no key for it until it is refetched, so readers treat a
+  missing key as empty ([rental-calendar.md](rental-calendar.md), [rental-pricing.md](rental-pricing.md)).
 - **The property page looks codes up in the cached list too** (`getPublishedProperty`). Requests
   for made-up codes like `/properties/SKY-XXX-9999` return 404 without touching the database.
 - The cache is Next.js's data cache (`unstable_cache`). On Vercel it is shared by all instances

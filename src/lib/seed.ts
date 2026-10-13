@@ -14,7 +14,7 @@ const SELLERS: Record<string, Seller> = {
 type SeedProperty = Omit<Property, "locationName">;
 type SeedInput = Omit<
   SeedProperty,
-  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription"
+  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules"
 > & {
   age: number;
   featured?: boolean;
@@ -29,6 +29,8 @@ const property = ({ age, featured = false, floor, developerDescription = "", ...
   developerDescription,
   documents: [],
   bookedDates: [],
+  weekendPrice: null,
+  priceRules: [],
   purpose: "sale",
   rentPeriod: null,
   previousStatus: p.status === "pending" ? null : "pending",

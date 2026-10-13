@@ -13,6 +13,7 @@ const store = vi.hoisted(() => ({
   updateProperty: vi.fn(),
   getProperty: vi.fn(),
   setBookedDates: vi.fn(),
+  setPropertyStatus: vi.fn(),
 }));
 const auth = vi.hoisted(() => ({ isAdmin: vi.fn() }));
 const photos = vi.hoisted(() => ({ uploadPhotos: vi.fn() }));
@@ -32,7 +33,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
 vi.mock("next/navigation", () => nav);
 
-const { createLocation, setBookedDays, setLocationArchived, submitProperty, updateLocation, updateProperty } = await import("./actions");
+const { createLocation, createPropertyAdmin, setBookedDays, setLocationArchived, submitProperty, updateLocation, updateProperty } = await import("./actions");
 
 const form = (fields: Record<string, string | string[]>) => {
   const fd = new FormData();
@@ -520,5 +521,96 @@ describe("setBookedDays (rental booking calendar)", () => {
     auth.isAdmin.mockResolvedValue(false);
     await expect(setBookedDays("p1", "2026-10-15", "2026-10-16", true)).rejects.toThrow("REDIRECT /admin/login");
     expect(store.setBookedDates).not.toHaveBeenCalled();
+  });
+});
+
+describe("rental prices that change by date", () => {
+  const rental = {
+    purpose: "rent",
+    rentPeriod: "night",
+    listingType: "resale",
+    title: "Sea-view chalet",
+    type: "chalet",
+    location: "new-cairo",
+    price: "3000",
+    area: "100",
+    bedrooms: "2",
+    bathrooms: "1",
+    sellerType: "company",
+  };
+  const summer = { from: "2027-06-01", to: "2027-07-31", price: 8000, weekendPrice: 10_000 };
+  const saved = () => store.updateProperty.mock.calls[0][1];
+
+  beforeEach(() => {
+    // 13 October 2026, midday in Cairo.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T09:00:00Z"));
+    photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]);
+    store.createProperty.mockResolvedValue("new-id");
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("saves the weekend price and special prices of a nightly rental", async () => {
+    const result = await updateProperty("p1", null, form({ ...rental, weekendPrice: "4500", priceRules: JSON.stringify([summer]) }));
+    expect(result).toEqual({ ok: true, message: en.msg.saved });
+    expect(saved()).toEqual(expect.objectContaining({ price: 3000, weekendPrice: 4500, priceRules: [summer] }));
+  });
+
+  it("publishes a new rental with its prices", async () => {
+    await expect(createPropertyAdmin(null, form({ ...rental, weekendPrice: "4500", priceRules: JSON.stringify([summer]), photos: JPEG }))).rejects.toThrow(
+      "REDIRECT /admin/properties/new-id",
+    );
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ purpose: "rent", weekendPrice: 4500, priceRules: [summer] }));
+    expect(store.setPropertyStatus).toHaveBeenCalledWith("new-id", "published");
+  });
+
+  it("treats both as optional", async () => {
+    await updateProperty("p1", null, form({ ...rental, weekendPrice: "", priceRules: "" }));
+    await updateProperty("p2", null, form(rental));
+    for (const [, input] of store.updateProperty.mock.calls) expect(input).toEqual(expect.objectContaining({ weekendPrice: null, priceRules: [] }));
+  });
+
+  it("rejects a weekend price that isn't a whole number from 1 to 1,000,000,000", async () => {
+    for (const weekendPrice of ["0", "1000000001", "4.5", "abc"]) {
+      expect(await updateProperty("p1", null, form({ ...rental, weekendPrice }))).toEqual({
+        ok: false,
+        message: "Weekend nights (EGP) must be a whole number from 1 to 1,000,000,000.",
+      });
+    }
+    expect(store.updateProperty).not.toHaveBeenCalled();
+  });
+
+  it("keeps special months but no weekend price on a monthly rental", async () => {
+    const months = [{ from: "2027-06", to: "2027-07", price: 40_000, weekendPrice: null }];
+    const result = await updateProperty("p1", null, form({ ...rental, rentPeriod: "month", price: "25000", weekendPrice: "abc", priceRules: JSON.stringify(months) }));
+    expect(result?.ok).toBe(true);
+    expect(saved()).toEqual(expect.objectContaining({ rentPeriod: "month", weekendPrice: null, priceRules: months }));
+  });
+
+  it("never keeps rental prices on sale listings", async () => {
+    await updateProperty("p1", null, form({ ...rental, purpose: "sale", price: "2000000", weekendPrice: "4500", priceRules: "not json" }));
+    expect(saved()).toEqual(expect.objectContaining({ purpose: "sale", weekendPrice: null, priceRules: [] }));
+  });
+
+  it("ignores them on public submissions, which are always sales", async () => {
+    const fields = { ...rental, sellerType: "owner", sellerName: "Owner", sellerPhone: "+20 100 000 0000", photos: JPEG };
+    expect((await submitProperty(null, form({ ...fields, weekendPrice: "4500", priceRules: JSON.stringify([summer]) })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ purpose: "sale", weekendPrice: null, priceRules: [] }));
+  });
+
+  it("refuses malformed special prices without saving", async () => {
+    const bad = [
+      { ...rental, priceRules: "not json" },
+      { ...rental, priceRules: JSON.stringify([{ ...summer, price: 0 }]) },
+      { ...rental, rentPeriod: "month", priceRules: JSON.stringify([summer]) },
+    ];
+    for (const fields of bad) expect(await updateProperty("p1", null, form(fields))).toEqual({ ok: false, message: en.msg.priceRulesFailed });
+    expect(store.updateProperty).not.toHaveBeenCalled();
+  });
+
+  it("drops special prices that are over and starts the current one today in Cairo", async () => {
+    const list = [{ from: "2026-09-01", to: "2026-09-30", price: 5000 }, { from: "2026-10-01", to: "2026-10-20", price: 6000 }];
+    await updateProperty("p1", null, form({ ...rental, priceRules: JSON.stringify(list) }));
+    expect(saved().priceRules).toEqual([{ from: "2026-10-13", to: "2026-10-20", price: 6000, weekendPrice: null }]);
   });
 });

@@ -3,11 +3,12 @@
 import { useActionState, useTransition } from "react";
 import { PropertyFields } from "@/components/property-fields";
 import { updateProperty } from "@/lib/actions";
+import type { Day } from "@/lib/availability";
 import { useDict } from "@/lib/i18n/client";
 import { withFailureMessage } from "@/lib/safe-action";
 import type { Location, Property } from "@/lib/types";
 
-export function EditPropertyForm({ property, locations }: { property: Property; locations: Location[] }) {
+export function EditPropertyForm({ property, locations, today }: { property: Property; locations: Location[]; today: Day }) {
   const dict = useDict();
   const t = dict.admin;
   const [state, action, pending] = useActionState(withFailureMessage(updateProperty.bind(null, property.id), dict.msg.requestFailed), null);
@@ -25,7 +26,7 @@ export function EditPropertyForm({ property, locations }: { property: Property; 
       }}
       className="space-y-8"
     >
-      <PropertyFields locations={locations} defaults={property} admin />
+      <PropertyFields locations={locations} defaults={property} admin today={today} />
       <div>
         <label className="label" htmlFor="adminNotes">
           {t.internalNotes}

@@ -63,6 +63,12 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS documents jsonb NOT NULL DEFAULT
 -- ["YYYY-MM-DD", ...] Cairo days. Set by the admin, shown on the property page. Always [] for sales.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS booked_dates jsonb NOT NULL DEFAULT '[]';
 
+-- Rental prices that change by date (docs/rental-pricing.md). weekend_price: Thursday and Friday
+-- nights of nightly rentals, NULL = the standard price. price_rules: special prices for runs of nights
+-- or months, [{ "from", "to", "price", "weekendPrice" }]. Always NULL and [] for sales.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS weekend_price bigint;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS price_rules jsonb NOT NULL DEFAULT '[]';
+
 -- "About the developer" text on Primary listings (docs/developer-description.md). '' when not given.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS developer_description text NOT NULL DEFAULT '';
 

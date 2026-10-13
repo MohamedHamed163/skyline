@@ -13,6 +13,7 @@ import { descriptionSections } from "@/lib/descriptions";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
+import { pricesVary } from "@/lib/pricing";
 import { avgPricePerSqm, placeLinks, similarTo } from "@/lib/search";
 import { getPublishedProperties, getPublishedProperty } from "@/lib/store";
 
@@ -37,6 +38,9 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   const place = property.compound ? `${property.compound}, ${property.locationName.en}` : property.locationName.en;
   const skylinePhone = process.env.NEXT_PUBLIC_SKYLINE_PHONE;
   const skylineWhatsapp = process.env.NEXT_PUBLIC_SKYLINE_WHATSAPP;
+  const today = cairoToday();
+  // Rentals whose price changes by date show "From …" and point to the calendar (docs/rental-pricing.md).
+  const vary = property.purpose === "rent" && property.rentPeriod && pricesVary(property, today) ? property.rentPeriod : null;
 
   const facts = [
     { icon: <BuildingIcon />, label: p.type, value: t.type[property.type] },
@@ -86,6 +90,11 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
             {priceText(t, property)}
             {property.purpose === "sale" && <span className="mt-1 block whitespace-nowrap text-sm font-medium text-cocoa sm:ms-3 sm:mt-0 sm:inline">{formatPrice(Math.round(property.price / property.area), t.currency)} {t.market.perSqm}</span>}
           </p>
+          {vary && (
+            <p className="mt-1 text-sm text-cocoa">
+              <a href="#availability" className="hover:text-gold-deep hover:underline">{p.pricesVary[vary]}</a>
+            </p>
+          )}
 
           <h2 className="mt-8 text-lg font-bold">{p.keyFacts}</h2>
           <dl className={`mt-3 grid grid-cols-2 gap-3 ${facts.length > 4 ? "sm:grid-cols-3 xl:grid-cols-5" : "sm:grid-cols-4"}`}>
@@ -122,11 +131,11 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
 
           {property.purpose === "rent" && (
             <>
-              <h2 className="mt-8 text-lg font-bold">{p.availability}</h2>
+              <h2 id="availability" className="mt-8 scroll-mt-24 text-lg font-bold">{p.availability}</h2>
               <p className="mt-1 text-sm text-cocoa">{p.availabilityHint}</p>
               <div className="card mt-3 p-4 sm:p-5">
                 {/* `?? []` covers rentals cached before booked days existed (docs/caching.md). */}
-                <AvailabilityCalendar booked={property.bookedDates ?? []} today={cairoToday()} />
+                <AvailabilityCalendar booked={property.bookedDates ?? []} today={today} pricing={property} />
               </div>
             </>
           )}

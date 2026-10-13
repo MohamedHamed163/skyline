@@ -4,6 +4,7 @@ import { useActionState, useCallback, useState, useTransition } from "react";
 import { DocumentField } from "@/components/document-field";
 import { PropertyFields } from "@/components/property-fields";
 import { createPropertyAdmin, submitProperty } from "@/lib/actions";
+import type { Day } from "@/lib/availability";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { toJpegDataUrl } from "@/lib/jpeg";
 import { MAX_DOCUMENT_MB } from "@/lib/document-limits";
@@ -15,8 +16,9 @@ const MAX_PHOTOS = 6;
 
 // mode "public": broker/owner submission (sale only, goes to review). The seller first picks
 // Primary or Resale; Primary adds the optional brochure and payment plan (docs/primary-documents.md).
-// mode "admin": Skyline adds a property (sale or rent), published straight away.
-export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mode: "public" | "admin"; locations: Location[]; defaultPurpose?: Purpose }) {
+// mode "admin": Skyline adds a property (sale or rent), published straight away. `today` (Cairo)
+// drives the rental special-price calendar.
+export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }: { mode: "public" | "admin"; locations: Location[]; defaultPurpose?: Purpose; today?: Day }) {
   const t = useDict();
   const admin = mode === "admin";
   const [state, action, pending] = useActionState(withFailureMessage(admin ? createPropertyAdmin : submitProperty, t.msg.requestFailed), null);
@@ -93,7 +95,7 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale" }: { mod
 
       {(admin || listingType) && (
         <>
-          <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} listingType={listingType ?? undefined} />
+          <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} listingType={listingType ?? undefined} today={today} />
 
           <fieldset>
             <legend className="mb-1 text-lg font-bold">{t.submit.images}</legend>

@@ -92,6 +92,33 @@ describe("applySearch", () => {
   });
 });
 
+describe("applySearch with rental prices that change by date", () => {
+  const TODAY = "2026-10-13";
+  // Standard 5,000 a night, but 2,000 all November: "From 2,000 EGP / night".
+  const discounted = makeProperty({ id: "a", purpose: "rent", rentPeriod: "night", price: 5000, priceRules: [{ from: "2026-11-01", to: "2026-11-30", price: 2000, weekendPrice: null }] });
+  const flat = makeProperty({ id: "b", purpose: "rent", rentPeriod: "night", price: 3000 });
+  // 2,500 on weekdays, 9,000 on Thursday and Friday nights: "From 2,500".
+  const weekends = makeProperty({ id: "c", purpose: "rent", rentPeriod: "night", price: 2500, weekendPrice: 9000 });
+
+  it("filters rentals by their From price, the one customers see", () => {
+    const upTo = (max: string) => applySearch([discounted, flat, weekends], parseSearch({ purpose: "rent", max }), TODAY).map((p) => p.id);
+    expect(upTo("2000")).toEqual(["a"]);
+    expect(upTo("2500").sort()).toEqual(["a", "c"]);
+    expect(applySearch([discounted, flat, weekends], parseSearch({ purpose: "rent", min: "2600" }), TODAY)).toEqual([flat]);
+  });
+
+  it("sorts rentals by their From price", () => {
+    const sorted = (sort: string) => applySearch([flat, weekends, discounted], parseSearch({ purpose: "rent", sort }), TODAY).map((p) => p.id);
+    expect(sorted("price_asc")).toEqual(["a", "c", "b"]);
+    expect(sorted("price_desc")).toEqual(["b", "c", "a"]);
+  });
+
+  it("goes back to the standard price once the special price is over", () => {
+    const december = "2026-12-01";
+    expect(applySearch([discounted, flat], parseSearch({ purpose: "rent", sort: "price_asc" }), december).map((p) => p.id)).toEqual(["b", "a"]);
+  });
+});
+
 describe("locationStats", () => {
   it("returns one entry per given location, in order, with market figures", () => {
     const published = [

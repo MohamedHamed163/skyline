@@ -37,6 +37,8 @@ Features and Location:
 - The same two-month calendar, read-only. Free days are green, booked days grey and crossed out,
   today has a gold outline, and past days are dimmed. A legend sits underneath.
 - Screen readers hear each day as "Tue, 13 Oct 2026, available" or "…, booked".
+- When the rental's price changes by date, each free night also shows its price (or each month its
+  price under the month name). See [rental-pricing.md](rental-pricing.md).
 - Sale listings have no Availability section.
 
 Weeks start on Sunday in English and on Saturday in Arabic, as Egyptian calendars print them. Arabic
@@ -77,7 +79,7 @@ until it exists. Reading is safe either way: a missing column reads as no booked
 | `src/lib/actions.ts` | `setBookedDays(id, from, to, booked)`: admin only, rentals only, validates the days, saves, expires the cache. Returns `{ ok: true, days }` or `{ ok: false, message }`. |
 | `src/lib/store.ts` | Reads `booked_dates` into `bookedDates`; `setBookedDates(id, days)` writes it. |
 | `src/lib/safe-action.ts` | `withFallback`: runs a server action and returns a fallback if the request fails. |
-| `src/components/availability-calendar.tsx` | `CalendarMonths` (two-month pager), `CalendarLegend`, and the public read-only `AvailabilityCalendar`. |
+| `src/components/availability-calendar.tsx` | `CalendarMonths` (two-month pager, optional month `title` renderer), `CalendarLegend`, and the public read-only `AvailabilityCalendar` (with prices, see [rental-pricing.md](rental-pricing.md)). |
 | `src/components/booking-calendar.tsx` | The admin `BookingCalendar`: selection, preview, Mark booked / available, saving and errors. |
 | `src/app/admin/(panel)/properties/[id]/page.tsx` | Booking calendar card for rentals. |
 | `src/app/(site)/properties/[code]/page.tsx` | Availability section for rentals. |

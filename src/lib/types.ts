@@ -45,6 +45,13 @@ export type Purpose = (typeof PURPOSES)[number];
 export const RENT_PERIODS = ["night", "month"] as const;
 export type RentPeriod = (typeof RENT_PERIODS)[number];
 
+/**
+ * A rental's special price for a run of nights ("YYYY-MM-DD" check-in days, nightly rentals) or months
+ * ("YYYY-MM", monthly rentals), both ends included (docs/rental-pricing.md). On nightly rentals
+ * `weekendPrice` is charged for the run's Thursday and Friday nights; null charges `price` every night.
+ */
+export type PriceRule = { from: string; to: string; price: number; weekendPrice: number | null };
+
 export const PROPERTY_STATUSES = [
   "pending",
   "published",
@@ -125,7 +132,12 @@ export type Property = {
   bathrooms: number;
   /** 0 is the ground floor; null when not given (villas and houses usually have none). */
   floor: number | null;
+  /** Rentals: the standard price per night or month, charged unless a weekend or special price applies. */
   price: number;
+  /** Nightly rentals only: the price of Thursday and Friday nights; null charges the standard price. */
+  weekendPrice: number | null;
+  /** Rentals only: special prices for seasons and holidays, sorted and non-overlapping. Empty for sales. */
+  priceRules: PriceRule[];
   /** The listing's description. On Primary listings it describes the project ("About the project"). */
   description: string;
   /** "About the developer", Primary sale listings only; "" otherwise (docs/developer-description.md). */

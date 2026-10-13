@@ -159,6 +159,11 @@ const en = {
     callSkyline: "Call Skyline",
     availability: "Availability",
     availabilityHint: "Crossed-out days are already booked. Request the dates you want and Skyline will confirm them.",
+    // Shown under the price when a rental's price changes by date (docs/rental-pricing.md).
+    pricesVary: {
+      night: "Prices change by date. Each free night shows its price on the calendar below.",
+      month: "Prices change by month. Each month shows its price on the calendar below.",
+    },
   },
   lead: {
     request: "Request More Information",
@@ -228,6 +233,9 @@ const en = {
     floor: "Floor",
     floorPlaceholder: "0 = ground",
     price: "Price ({currency})",
+    standardPrice: "Standard price per {period} ({currency})",
+    weekendPrice: "Weekend nights ({currency})",
+    weekendHint: "Thursday and Friday nights. Leave empty to charge the standard price.",
     description: "Description",
     projectDescription: "About the project",
     projectDescriptionPlaceholder: "The project, its amenities, finishing and delivery date",
@@ -304,6 +312,7 @@ const en = {
     locationAdded: "Location added.",
     documentFailed: "One of the documents couldn't be attached. Please remove it and upload it again.",
     calendarFailed: "Couldn't update the calendar. Please try again.",
+    priceRulesFailed: "The special prices couldn't be saved. Check them and try again.",
   },
   admin: {
     locations: {
@@ -435,6 +444,38 @@ const en = {
       markAvailable: "Mark available",
       cancel: "Cancel",
       saving: "Saving…",
+    },
+    // Special prices on the rental form (docs/rental-pricing.md).
+    pricing: {
+      title: "Special prices",
+      hint: {
+        night: "For seasons and holidays. Click a month's name to select the whole month, or click a first and a last night. Then enter the price and press Apply.",
+        month: "For high-season months. Click a month, or a first and a last month. Then enter the price and press Apply.",
+      },
+      standardFirst: "Enter the standard price above to see each night's price here.",
+      selected: "Selected",
+      nights: "({n} nights)",
+      months: "({n} months)",
+      pricePer: "Price per {period} ({currency})",
+      apply: "Apply",
+      useStandard: "Use standard price",
+      cancel: "Cancel",
+      badPrice: "Enter a price from {min} to {max}.",
+      badWeekend: "Weekend nights: enter a price from {min} to {max}, or leave it empty.",
+      notApplied: "Press Apply to add this price, or Cancel.",
+      listTitle: "Special prices set",
+      none: {
+        night: "None yet: every night is charged the standard or weekend price.",
+        month: "None yet: every month is charged the standard price.",
+      },
+      weekendRule: "weekend nights {price}",
+      edit: "Edit",
+      remove: "Remove",
+      standard: "Standard price",
+      weekend: "Weekend price",
+      special: "Special price",
+      selectMonth: "Select all of {month}",
+      keyPrice: "{key}: {price}",
     },
     propertyLeads: "Customer requests for this property ({count})",
     noLeadsForProperty: "No requests yet.",
@@ -575,6 +616,7 @@ const en = {
   purposeBadge: { sale: "For sale", rent: "For rent" },
   rentPeriod: { night: "night", month: "month" },
   per: "/ {period}",
+  rentFrom: "From {price}",
   // Month calendar shared by the property page and the admin booking calendar (docs/rental-calendar.md).
   calendar: {
     prevMonth: "Previous month",
@@ -584,6 +626,7 @@ const en = {
     today: "Today",
     dayAvailable: "{day}, available",
     dayBooked: "{day}, booked",
+    dayAvailablePrice: "{day}, available, {price}",
   },
   feature: {
     Garden: "Garden",

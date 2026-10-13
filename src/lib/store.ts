@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { CACHE_TAGS, PUBLIC_DATA_TTL } from "./cache-tags";
 import { sql } from "./db";
-import { toListingType, type Lead, type LeadStatus, type Location, type Property, type PropertyDocument, type PropertyStatus } from "./types";
+import { toListingType, type Lead, type LeadStatus, type Location, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
 
@@ -31,6 +31,9 @@ const toProperty = (r: Row): Property => ({
   bathrooms: r.bathrooms as number,
   floor: (r.floor as number | null) ?? null,
   price: Number(r.price),
+  // bigint comes back as a string. Both columns read as "none" before schema.sql adds them.
+  weekendPrice: r.weekend_price == null ? null : Number(r.weekend_price),
+  priceRules: (r.price_rules as PriceRule[] | undefined) ?? [],
   description: r.description as string,
   developerDescription: (r.developer_description as string | undefined) ?? "",
   features: r.features as string[],
@@ -131,6 +134,9 @@ const propertyColumns = (p: PropertyInput) => ({
   bathrooms: p.bathrooms,
   floor: p.floor,
   price: p.price,
+  // Weekend and special prices belong to rentals only (docs/rental-pricing.md).
+  weekend_price: p.purpose === "rent" && p.rentPeriod === "night" ? p.weekendPrice : null,
+  price_rules: sql().json(p.purpose === "rent" ? p.priceRules : []),
   description: p.description,
   developer_description: p.developerDescription,
   features: sql().json(p.features),

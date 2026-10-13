@@ -29,6 +29,8 @@ export const makeProperty = (o: Partial<Property> = {}): Property => ({
   bathrooms: 1,
   floor: null,
   price: 1_000_000,
+  weekendPrice: null,
+  priceRules: [],
   description: "",
   developerDescription: "",
   features: [],
