@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { makeLocation } from "@/test/fixtures";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeLocation, makeProperty } from "@/test/fixtures";
 import en from "./i18n/en";
 
 // Server actions with the database, auth, uploads and Next.js runtime mocked out.
@@ -11,6 +11,8 @@ const store = vi.hoisted(() => ({
   setLocationArchived: vi.fn(),
   createProperty: vi.fn(),
   updateProperty: vi.fn(),
+  getProperty: vi.fn(),
+  setBookedDates: vi.fn(),
 }));
 const auth = vi.hoisted(() => ({ isAdmin: vi.fn() }));
 const photos = vi.hoisted(() => ({ uploadPhotos: vi.fn() }));
@@ -30,7 +32,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
 vi.mock("next/navigation", () => nav);
 
-const { createLocation, setLocationArchived, submitProperty, updateLocation, updateProperty } = await import("./actions");
+const { createLocation, setBookedDays, setLocationArchived, submitProperty, updateLocation, updateProperty } = await import("./actions");
 
 const form = (fields: Record<string, string | string[]>) => {
   const fd = new FormData();
@@ -394,5 +396,61 @@ describe("seller's primary/resale choice and primary documents", () => {
   it("leaves documents alone when the admin edits the property", async () => {
     await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "resale", ...docs }));
     expect(store.updateProperty).toHaveBeenCalledWith("p1", expect.not.objectContaining({ documents: expect.anything() }));
+  });
+});
+
+describe("setBookedDays (rental booking calendar)", () => {
+  const rental = (bookedDates: string[] = []) => makeProperty({ purpose: "rent", rentPeriod: "night", code: "SKY-RNT-0001", bookedDates });
+
+  beforeEach(() => {
+    // 13 October 2026, midday in Cairo.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T09:00:00Z"));
+    store.getProperty.mockResolvedValue(rental(["2026-10-01", "2026-10-20"]));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("books a range, keeps the other booked days and drops past ones", async () => {
+    const result = await setBookedDays("p1", "2026-10-15", "2026-10-17", true);
+    const days = ["2026-10-15", "2026-10-16", "2026-10-17", "2026-10-20"];
+    expect(result).toEqual({ ok: true, days });
+    expect(store.getProperty).toHaveBeenCalledWith("p1");
+    expect(store.setBookedDates).toHaveBeenCalledWith("p1", days);
+  });
+
+  it("frees days again", async () => {
+    expect(await setBookedDays("p1", "2026-10-20", "2026-10-20", false)).toEqual({ ok: true, days: [] });
+    expect(store.setBookedDates).toHaveBeenCalledWith("p1", []);
+  });
+
+  it("never books days before today in Cairo", async () => {
+    expect(await setBookedDays("p1", "2026-10-10", "2026-10-13", true)).toEqual({ ok: true, days: ["2026-10-13", "2026-10-20"] });
+  });
+
+  it("rejects malformed days without reading or saving", async () => {
+    for (const [from, to] of [["2026-02-30", "2026-03-01"], ["13/10/2026", "2026-10-14"], ["2026-10-14", "tomorrow"]]) {
+      expect(await setBookedDays("p1", from, to, true)).toEqual({ ok: false, message: en.msg.calendarFailed });
+    }
+    expect(store.getProperty).not.toHaveBeenCalled();
+    expect(store.setBookedDates).not.toHaveBeenCalled();
+  });
+
+  it("only works on rentals", async () => {
+    store.getProperty.mockResolvedValueOnce(makeProperty({ purpose: "sale" })).mockResolvedValueOnce(undefined);
+    expect(await setBookedDays("p1", "2026-10-15", "2026-10-16", true)).toEqual({ ok: false, message: en.msg.calendarFailed });
+    expect(await setBookedDays("nope", "2026-10-15", "2026-10-16", true)).toEqual({ ok: false, message: en.msg.calendarFailed });
+    expect(store.setBookedDates).not.toHaveBeenCalled();
+  });
+
+  it("reports storage failures", async () => {
+    store.setBookedDates.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await setBookedDays("p1", "2026-10-15", "2026-10-16", true)).toEqual({ ok: false, message: en.msg.calendarFailed });
+  });
+
+  it("requires an admin", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(setBookedDays("p1", "2026-10-15", "2026-10-16", true)).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.setBookedDates).not.toHaveBeenCalled();
   });
 });

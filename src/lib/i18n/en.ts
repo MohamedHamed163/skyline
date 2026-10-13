@@ -141,6 +141,8 @@ const en = {
     code: "Property code",
     listedOn: "Listed on",
     callSkyline: "Call Skyline",
+    availability: "Availability",
+    availabilityHint: "Crossed-out days are already booked. Request the dates you want and Skyline will confirm them.",
   },
   lead: {
     request: "Request More Information",
@@ -281,6 +283,7 @@ const en = {
     locationSaveFailed: "Something went wrong while saving the location. Please try again.",
     locationAdded: "Location added.",
     documentFailed: "One of the documents couldn't be attached. Please remove it and upload it again.",
+    calendarFailed: "Couldn't update the calendar. Please try again.",
   },
   admin: {
     locations: {
@@ -402,6 +405,17 @@ const en = {
     requestChangesPlaceholder: "Internal note: what must be corrected? (optional)",
     markNeedsChanges: "Mark as Needs Changes",
     requestChangesHint: "Available while a property is waiting for review.",
+    calendar: {
+      title: "Booking calendar",
+      hint: "Click a day, or a first and a last day, then mark them booked or available. Booked days are crossed out on the public property page.",
+      upcoming: "Booked days ahead: {n}",
+      selected: "Selected",
+      days: "({n} days)",
+      markBooked: "Mark booked",
+      markAvailable: "Mark available",
+      cancel: "Cancel",
+      saving: "Saving…",
+    },
     propertyLeads: "Customer requests for this property ({count})",
     noLeadsForProperty: "No requests yet.",
     editProperty: "Edit property",
@@ -541,6 +555,16 @@ const en = {
   purposeBadge: { sale: "For sale", rent: "For rent" },
   rentPeriod: { night: "night", month: "month" },
   per: "/ {period}",
+  // Month calendar shared by the property page and the admin booking calendar (docs/rental-calendar.md).
+  calendar: {
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
+    available: "Available",
+    booked: "Booked",
+    today: "Today",
+    dayAvailable: "{day}, available",
+    dayBooked: "{day}, booked",
+  },
   feature: {
     Garden: "Garden",
     "Private pool": "Private pool",

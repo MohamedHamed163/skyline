@@ -59,6 +59,10 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS floor integer;
 -- [{ "kind": "brochure" | "paymentPlan", "url": "...", "name": "..." }]. Admin-only.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS documents jsonb NOT NULL DEFAULT '[]';
 
+-- Rental booking calendar (docs/rental-calendar.md): days already booked, as sorted
+-- ["YYYY-MM-DD", ...] Cairo days. Set by the admin, shown on the property page. Always [] for sales.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS booked_dates jsonb NOT NULL DEFAULT '[]';
+
 -- Property-code counters. Sequences never hand out the same number twice.
 -- property_code_premium counts primary listings: it keeps its old name so the numbers carry on.
 CREATE SEQUENCE IF NOT EXISTS property_code_premium;

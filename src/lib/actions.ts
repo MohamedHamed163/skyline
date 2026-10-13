@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { checkPassword, endSession, isAdmin, startSession } from "./auth";
+import { applyRange, cairoToday, isDay } from "./availability";
 import { CACHE_TAGS } from "./cache-tags";
 import { readDocuments } from "./document-limits";
 import { verifyDocument } from "./documents";
@@ -270,6 +271,33 @@ export async function createPropertyAdmin(_prev: FormState, fd: FormData): Promi
   updateTag(CACHE_TAGS.properties);
   revalidatePath("/", "layout");
   redirect(`/admin/properties/${id}`);
+}
+
+// ---- Admin: rental booking calendar ----
+
+export type BookedDaysResult = { ok: true; days: string[] } | { ok: false; message: string };
+
+/**
+ * Marks the days from `from` to `to` booked (or available again) on a rental's calendar
+ * (docs/rental-calendar.md). Days before today and past the booking horizon are ignored. Returns the
+ * rental's booked days after the change, so the calendar shows exactly what was saved.
+ */
+export async function setBookedDays(id: string, from: string, to: string, booked: boolean): Promise<BookedDaysResult> {
+  await requireAdmin();
+  const t = (await getDict()).msg;
+  if (!isDay(from) || !isDay(to) || typeof booked !== "boolean") return { ok: false, message: t.calendarFailed };
+  const property = await store.getProperty(id);
+  if (!property || property.purpose !== "rent") return { ok: false, message: t.calendarFailed };
+  const days = applyRange(property.bookedDates, from, to, booked, cairoToday());
+  try {
+    await store.setBookedDates(id, days);
+  } catch (err) {
+    console.error("Booking calendar update failed", err);
+    return { ok: false, message: t.calendarFailed };
+  }
+  updateTag(CACHE_TAGS.properties);
+  revalidatePath("/", "layout");
+  return { ok: true, days };
 }
 
 // ---- Admin: locations ----

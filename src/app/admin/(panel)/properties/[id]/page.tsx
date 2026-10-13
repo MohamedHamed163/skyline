@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/action-form";
 import { LeadStatusBadge, StatusActions, StatusBadge } from "@/components/admin-ui";
+import { BookingCalendar } from "@/components/booking-calendar";
 import { CopyCode } from "@/components/copy-button";
 import { EditPropertyForm } from "@/components/edit-property-form";
 import { DocumentIcon } from "@/components/icons";
 import { Photo, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { requestChanges } from "@/lib/actions";
+import { cairoToday } from "@/lib/availability";
 import { floorText, formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { sellerName, sellerWithType } from "@/lib/sellers";
@@ -110,6 +112,14 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
               ))}
             </ul>
           )}
+        </section>
+      )}
+
+      {property.purpose === "rent" && (
+        <section className="card p-5">
+          <h2 className="font-bold">{a.calendar.title}</h2>
+          <p className="mb-4 text-xs text-cocoa">{a.calendar.hint}</p>
+          <BookingCalendar propertyId={property.id} bookedDates={property.bookedDates} today={cairoToday()} />
         </section>
       )}
 

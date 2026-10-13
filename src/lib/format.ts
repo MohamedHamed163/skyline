@@ -36,6 +36,27 @@ export function formatDay(iso: string, locale = "en") {
   }).format(new Date(iso));
 }
 
+// Calendar days ("YYYY-MM-DD", see availability.ts) are already Cairo days: format them in UTC so
+// the viewer's time zone can't move them.
+const calendarDate = (day: string) => new Date(`${day}T00:00:00Z`);
+
+/** "October 2026" for a "YYYY-MM" month. */
+export function formatMonth(month: string, locale = "en") {
+  return new Intl.DateTimeFormat(dateLocale(locale), { month: "long", year: "numeric", timeZone: "UTC" }).format(calendarDate(`${month}-01`));
+}
+
+/** "Tue, 13 Oct 2026" for a "YYYY-MM-DD" day. */
+export function formatCalendarDay(day: string, locale = "en") {
+  return new Intl.DateTimeFormat(dateLocale(locale), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(calendarDate(day));
+}
+
+/** Calendar column heading for a weekday (0 = Sunday): "Sun" in English, "ح" in Arabic, where full names don't fit. */
+export function weekdayLabel(weekday: number, locale = "en") {
+  // 4 January 2026 was a Sunday.
+  const day = `2026-01-${String(4 + weekday).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat(dateLocale(locale), { weekday: locale === "ar" ? "narrow" : "short", timeZone: "UTC" }).format(calendarDate(day));
+}
+
 export function isToday(iso: string) {
   return formatDay(iso) === formatDay(new Date().toISOString());
 }

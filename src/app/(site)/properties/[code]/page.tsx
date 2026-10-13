@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { Gallery } from "@/components/gallery";
 import { AreaIcon, BathIcon, BedIcon, BuildingIcon, CheckIcon, ChevronIcon, PhoneIcon, PinIcon, StairsIcon, WhatsAppIcon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { PropertyCard, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { ShareButton } from "@/components/share-button";
+import { cairoToday } from "@/lib/availability";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
@@ -112,6 +114,17 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
                   </li>
                 ))}
               </ul>
+            </>
+          )}
+
+          {property.purpose === "rent" && (
+            <>
+              <h2 className="mt-8 text-lg font-bold">{p.availability}</h2>
+              <p className="mt-1 text-sm text-cocoa">{p.availabilityHint}</p>
+              <div className="card mt-3 p-4 sm:p-5">
+                {/* `?? []` covers rentals cached before booked days existed (docs/caching.md). */}
+                <AvailabilityCalendar booked={property.bookedDates ?? []} today={cairoToday()} />
+              </div>
             </>
           )}
 

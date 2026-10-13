@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeLocation, makeProperty } from "@/test/fixtures";
+import { cairoToday } from "./availability";
 import { CACHE_TAGS } from "./cache-tags";
 import en from "./i18n/en";
 
@@ -17,6 +18,7 @@ const store = vi.hoisted(() => ({
   createLead: vi.fn(),
   getProperty: vi.fn(),
   updateLead: vi.fn(),
+  setBookedDates: vi.fn(),
 }));
 
 vi.mock("./store", () => store);
@@ -53,6 +55,13 @@ describe("cache invalidation", () => {
 
   it("expires properties when changes are requested", async () => {
     await actions.requestChanges("p1", form({ adminNotes: "Fix the price" }));
+    expect(updateTag).toHaveBeenCalledWith(CACHE_TAGS.properties);
+  });
+
+  it("expires properties when a rental's booked days change", async () => {
+    store.getProperty.mockResolvedValue(makeProperty({ purpose: "rent", rentPeriod: "night" }));
+    const today = cairoToday();
+    expect(await actions.setBookedDays("p1", today, today, true)).toEqual({ ok: true, days: [today] });
     expect(updateTag).toHaveBeenCalledWith(CACHE_TAGS.properties);
   });
 

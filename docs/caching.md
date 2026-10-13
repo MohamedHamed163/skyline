@@ -33,7 +33,7 @@ Every admin change made through the app **expires the matching tag immediately**
 
 | Action | Expires |
 | --- | --- |
-| `setPropertyStatus` (approve, reject, sold, archive, …), `requestChanges`, `updateProperty`, `createPropertyAdmin` | `properties` |
+| `setPropertyStatus` (approve, reject, sold, archive, …), `requestChanges`, `updateProperty`, `createPropertyAdmin`, `setBookedDays` ([rental-calendar.md](rental-calendar.md)) | `properties` |
 | `createLocation`, `updateLocation`, `setLocationArchived` | `locations` (property data too, since it carries location names) |
 
 As a safety net, cached data is also refetched after **5 minutes** (`PUBLIC_DATA_TTL` in

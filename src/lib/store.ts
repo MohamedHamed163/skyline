@@ -35,6 +35,7 @@ const toProperty = (r: Row): Property => ({
   features: r.features as string[],
   photos: r.photos as string[],
   documents: (r.documents as PropertyDocument[] | undefined) ?? [],
+  bookedDates: (r.booked_dates as string[] | undefined) ?? [],
   seller: {
     type: r.seller_type as Property["seller"]["type"],
     name: r.seller_name as string,
@@ -112,7 +113,7 @@ export async function getProperty(id: string) {
 
 export type PropertyInput = Omit<
   Property,
-  "id" | "code" | "locationName" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "createdAt" | "updatedAt"
+  "id" | "code" | "locationName" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "bookedDates" | "createdAt" | "updatedAt"
 >;
 
 const propertyColumns = (p: PropertyInput) => ({
@@ -166,6 +167,14 @@ export async function setPropertyStatus(id: string, status: PropertyStatus, admi
       admin_notes = COALESCE(${adminNotes ?? null}, admin_notes),
       updated_at = now()
     WHERE id = ${id}`;
+}
+
+/**
+ * Replaces a rental's booked days (sorted "YYYY-MM-DD" strings, see availability.ts). Booking days
+ * isn't a listing edit, so "Last updated" stays as it was.
+ */
+export async function setBookedDates(id: string, days: string[]) {
+  await sql()`UPDATE properties SET booked_dates = ${sql().json(days)} WHERE id = ${id}`;
 }
 
 // ---- Locations ----

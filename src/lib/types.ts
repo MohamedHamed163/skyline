@@ -131,6 +131,11 @@ export type Property = {
   photos: string[];
   /** Private: the brochure and payment plan sent with a Primary submission. Admin-only. */
   documents: PropertyDocument[];
+  /**
+   * Rentals only: days already booked, as sorted "YYYY-MM-DD" Cairo days. Set by the admin on the
+   * booking calendar and shown on the property page (docs/rental-calendar.md). Empty for sales.
+   */
+  bookedDates: string[];
   /** Private: never rendered on public pages. */
   seller: Seller;
   status: PropertyStatus;

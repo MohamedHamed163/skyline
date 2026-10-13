@@ -142,6 +142,8 @@ const ar: Dict = {
     code: "كود العقار",
     listedOn: "تاريخ النشر",
     callSkyline: "اتصل بسكاي لاين",
+    availability: "الأيام المتاحة",
+    availabilityHint: "الأيام المشطوبة محجوزة بالفعل. اطلب المواعيد التي تناسبك وسيؤكدها لك فريق سكاي لاين.",
   },
   lead: {
     request: "اطلب مزيدًا من المعلومات",
@@ -281,6 +283,7 @@ const ar: Dict = {
     locationSaveFailed: "حدث خطأ أثناء حفظ المنطقة. حاول مرة أخرى.",
     locationAdded: "تمت إضافة المنطقة.",
     documentFailed: "تعذر إرفاق أحد المستندات. يُرجى حذفه ورفعه مرة أخرى.",
+    calendarFailed: "تعذر تحديث التقويم. يُرجى المحاولة مرة أخرى.",
   },
   admin: {
     locations: {
@@ -402,6 +405,17 @@ const ar: Dict = {
     requestChangesPlaceholder: "ملاحظة داخلية: ما الذي يجب تصحيحه؟ (اختياري)",
     markNeedsChanges: "تحديد كـ «يحتاج تعديلات»",
     requestChangesHint: "متاح أثناء انتظار العقار للمراجعة.",
+    calendar: {
+      title: "تقويم الحجوزات",
+      hint: "اضغط على يوم، أو على أول يوم وآخر يوم، ثم حدّدها كمحجوزة أو متاحة. تظهر الأيام المحجوزة مشطوبة في صفحة العقار العامة.",
+      upcoming: "الأيام المحجوزة القادمة: {n}",
+      selected: "المحدد",
+      days: "(عدد الأيام: {n})",
+      markBooked: "تحديد كمحجوز",
+      markAvailable: "تحديد كمتاح",
+      cancel: "إلغاء",
+      saving: "جارٍ الحفظ…",
+    },
     propertyLeads: "طلبات العملاء على هذا العقار ({count})",
     noLeadsForProperty: "لا توجد طلبات بعد.",
     editProperty: "تعديل العقار",
@@ -541,6 +555,15 @@ const ar: Dict = {
   purposeBadge: { sale: "للبيع", rent: "للإيجار" },
   rentPeriod: { night: "ليلة", month: "شهر" },
   per: "/ {period}",
+  calendar: {
+    prevMonth: "الشهر السابق",
+    nextMonth: "الشهر التالي",
+    available: "متاح",
+    booked: "محجوز",
+    today: "اليوم",
+    dayAvailable: "{day}، متاح",
+    dayBooked: "{day}، محجوز",
+  },
   feature: {
     Garden: "حديقة",
     "Private pool": "حمام سباحة خاص",

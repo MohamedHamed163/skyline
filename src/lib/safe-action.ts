@@ -17,13 +17,16 @@ export async function succeeded(run: () => Promise<unknown>): Promise<boolean> {
   }
 }
 
+/** Runs a server action and returns its result, or `fallback` if the request fails. Redirects still happen. */
+export async function withFallback<T>(run: () => Promise<T>, fallback: T): Promise<T> {
+  let result = fallback;
+  await succeeded(async () => {
+    result = await run();
+  });
+  return result;
+}
+
 /** Wraps a server action for `useActionState`: a failed request becomes `{ ok: false, message }`. */
 export function withFailureMessage<P>(action: (prev: FormState, payload: P) => Promise<FormState>, message: string) {
-  return async (prev: FormState, payload: P): Promise<FormState> => {
-    let result: FormState = { ok: false, message };
-    await succeeded(async () => {
-      result = await action(prev, payload);
-    });
-    return result;
-  };
+  return (prev: FormState, payload: P): Promise<FormState> => withFallback(() => action(prev, payload), { ok: false, message });
 }

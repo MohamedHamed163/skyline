@@ -33,6 +33,7 @@ export const makeProperty = (o: Partial<Property> = {}): Property => ({
   features: [],
   photos: ["/listings/villa-1.jpg"],
   documents: [],
+  bookedDates: [],
   seller: { type: "owner", name: "Owner", phone: "+20 100 000 0000", whatsapp: "", company: "" },
   status: "published",
   previousStatus: "pending",

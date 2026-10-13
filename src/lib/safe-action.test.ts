@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { succeeded, withFailureMessage } = await import("./safe-action");
+const { succeeded, withFailureMessage, withFallback } = await import("./safe-action");
 
 describe("withFailureMessage", () => {
   const fd = new FormData();
@@ -31,6 +31,28 @@ describe("withFailureMessage", () => {
       throw new Error("NEXT_REDIRECT;/admin/properties/p1");
     });
     await expect(withFailureMessage(action, "Offline")(null, fd)).rejects.toThrow("NEXT_REDIRECT");
+  });
+});
+
+describe("withFallback", () => {
+  it("returns the action's result", async () => {
+    const saved = async (): Promise<{ ok: boolean; days?: string[] }> => ({ ok: true, days: ["2026-10-20"] });
+    expect(await withFallback(saved, { ok: false })).toEqual({ ok: true, days: ["2026-10-20"] });
+  });
+
+  it("returns the fallback when the request fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const failing = async (): Promise<{ ok: boolean }> => {
+      throw new TypeError("Failed to fetch");
+    };
+    expect(await withFallback(failing, { ok: false })).toEqual({ ok: false });
+  });
+
+  it("lets redirects through (an expired admin session)", async () => {
+    const redirecting = async () => {
+      throw new Error("NEXT_REDIRECT;/admin/login");
+    };
+    await expect(withFallback(redirecting, null)).rejects.toThrow("NEXT_REDIRECT");
   });
 });
 

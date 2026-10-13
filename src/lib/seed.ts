@@ -12,13 +12,14 @@ const SELLERS: Record<string, Seller> = {
 
 // Location names live in the locations table, so seed rows only carry the location id.
 type SeedProperty = Omit<Property, "locationName">;
-type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents"> & { age: number; featured?: boolean; floor?: number };
+type SeedInput = Omit<SeedProperty, "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates"> & { age: number; featured?: boolean; floor?: number };
 
 const property = ({ age, featured = false, floor, ...p }: SeedInput): SeedProperty => ({
   ...p,
   featured,
   floor: floor ?? null,
   documents: [],
+  bookedDates: [],
   purpose: "sale",
   rentPeriod: null,
   previousStatus: p.status === "pending" ? null : "pending",
