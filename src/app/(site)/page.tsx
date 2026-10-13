@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuildingIcon, CheckIcon } from "@/components/icons";
+import { Offers } from "@/components/offers";
 import { ProjectCard } from "@/components/project-card";
 import { Photo, PropertyCard } from "@/components/property-card";
 import { SearchBar } from "@/components/search-bar";
@@ -32,6 +33,9 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Primary cashback / resale commission offers, right under the navbar */}
+      <Offers t={t} />
+
       {/* Hero with search */}
       <section className="relative isolate overflow-hidden bg-espresso text-cream">
         <Photo src="/listings/villa-2.jpg" alt="" className="absolute inset-0 -z-10 h-full w-full opacity-35" />

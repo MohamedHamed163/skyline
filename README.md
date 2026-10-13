@@ -36,6 +36,7 @@ The file ends with the statements that remove the set again.
 
 ## Features
 
+- [Home-page offers](docs/offers.md): the 1% Primary cashback and 0.5% Resale commission cards under the navbar, above the hero.
 - [Home page sections](docs/homepage.md): the admin sets Primary/Resale and ticks "Show on the home page" to put a property first.
 - [Listing types](docs/listing-types.md): Primary (formerly Premium) and Resale, and the home search tabs (Primary | Resale | Rent, no Buy tab).
 - [Primary or Resale on /submit](docs/primary-documents.md): sellers pick the listing type first; Primary submissions can attach a brochure (PDF) and payment plan (PDF/Excel), uploaded straight to Vercel Blob and shown only to the admin.

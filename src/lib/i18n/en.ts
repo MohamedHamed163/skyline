@@ -90,6 +90,20 @@ const en = {
       ["One advisor, every property", "Request details on any home and a Skyline advisor handles the rest."],
       ["Real market figures", "Prices per m² and ranges are computed from live listings, not estimates."],
     ],
+    // Offer cards above the hero. {rate} is filled from src/lib/offers.ts (docs/offers.md).
+    offers: {
+      title: "Skyline offers",
+      primary: {
+        headline: "Buy Primary. Get {rate} Cashback.",
+        text: "Purchase a primary-market property through Skyline and receive {rate} cashback.",
+        highlight: "{rate} cashback",
+      },
+      resale: {
+        headline: "Buy or Sell Resale with Just {rate} Commission.",
+        text: "Skyline charges only {rate} commission on resale transactions.",
+        highlight: "Only {rate} commission",
+      },
+    },
   },
   properties: {
     metaTitle: "Properties",

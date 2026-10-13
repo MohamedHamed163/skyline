@@ -23,6 +23,7 @@ Nothing else needs configuring. If no property is ticked, every row just shows t
 
 | Section | Rule |
 | --- | --- |
+| Offers | Fixed band under the navbar, above the hero: 1% Primary cashback and 0.5% Resale commission. Not admin-managed (see [offers.md](offers.md)). |
 | Featured projects | Sale properties grouped by compound. Compounds with a ticked property come first, then the ones with the most listings. 4 shown. |
 | Primary / Resale | Published sale properties of that listing type: ticked first, then newest. 3 shown. |
 | Rentals | Published rentals: ticked first, then newest. 3 shown. |
