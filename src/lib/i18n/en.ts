@@ -158,7 +158,7 @@ const en = {
     listedOn: "Listed on",
     callSkyline: "Call Skyline",
     availability: "Availability",
-    availabilityHint: "Crossed-out days are already booked. Request the dates you want and Skyline will confirm them.",
+    availabilityHint: "Crossed-out days are already booked. Pick your check-in and check-out days, then ask Skyline on WhatsApp whether they're free.",
     // Shown under the price when a rental's price changes by date (docs/rental-pricing.md).
     pricesVary: {
       night: "Prices change by date. Each free night shows its price on the calendar below.",
@@ -749,6 +749,30 @@ const en = {
     dayAvailable: "{day}, available",
     dayBooked: "{day}, booked",
     dayAvailablePrice: "{day}, available, {price}",
+  },
+  // Picking a stay on a rental's calendar and asking Skyline about it on WhatsApp (docs/booking-requests.md).
+  booking: {
+    yourStay: "Your stay",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    nights: "Nights",
+    total: "Total",
+    pickDay: "Pick a day",
+    pickCheckIn: "Pick your check-in day on the calendar.",
+    pickCheckOut: "Now pick your check-out day.",
+    ready: "Send these dates to Skyline on WhatsApp to check they're free.",
+    ask: "Ask on WhatsApp",
+    clear: "Clear dates",
+    // The WhatsApp message, one line each.
+    message: {
+      greeting: "Hi, I'm interested in the following booking:",
+      property: "Property: {code} – {title}",
+      checkIn: "Check-in: {day}",
+      checkOut: "Check-out: {day}",
+      nights: "Total nights: {n}",
+      total: "Total price: {price}",
+      question: "Is it available on these dates?",
+    },
   },
   feature: {
     Garden: "Garden",

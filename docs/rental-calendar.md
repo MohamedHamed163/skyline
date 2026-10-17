@@ -3,8 +3,9 @@
 Rentals have a booking calendar. The admin blocks the days that are already booked, and customers
 see on the property page which days are still free before they send a request.
 
-The calendar is informational. It doesn't take bookings or payments: customers still use "Request
-More Information", and the admin confirms the dates and then blocks them.
+The calendar doesn't take bookings or payments. Customers pick a check-in and a check-out day and
+ask Skyline on WhatsApp whether they're free ([booking-requests.md](booking-requests.md)), or use
+"Request More Information"; the admin confirms the dates and then blocks them.
 
 ## Admin behaviour
 
@@ -33,9 +34,12 @@ under the photos. It isn't shown for sale listings.
 The property page of a rental (`/properties/[code]`) has an **Availability** section between
 Features and Location:
 
-- "Crossed-out days are already booked. Request the dates you want and Skyline will confirm them."
-- The same two-month calendar, read-only. Free days are green, booked days grey and crossed out,
-  today has a gold outline, and past days are dimmed. A legend sits underneath.
+- "Crossed-out days are already booked. Pick your check-in and check-out days, then ask Skyline on
+  WhatsApp whether they're free."
+- The same two-month calendar. Free days are green, booked days grey and crossed out, today has a
+  gold outline, and past days are dimmed. A legend sits underneath.
+- Customers click a check-in and a check-out day, see the nights and total price in a bar under the
+  calendar and press **Ask on WhatsApp**. See [booking-requests.md](booking-requests.md).
 - Screen readers hear each day as "Tue, 13 Oct 2026, available" or "…, booked".
 - When the rental's price changes by date, each free night also shows its price (or each month its
   price under the month name). See [rental-pricing.md](rental-pricing.md).
@@ -79,7 +83,7 @@ until it exists. Reading is safe either way: a missing column reads as no booked
 | `src/lib/actions.ts` | `setBookedDays(id, from, to, booked)`: admin only, rentals only, validates the days, saves, expires the cache. Returns `{ ok: true, days }` or `{ ok: false, message }`. |
 | `src/lib/store.ts` | Reads `booked_dates` into `bookedDates`; `setBookedDates(id, days)` writes it. |
 | `src/lib/safe-action.ts` | `withFallback`: runs a server action and returns a fallback if the request fails. |
-| `src/components/availability-calendar.tsx` | `CalendarMonths` (two-month pager, optional month `title` renderer), `CalendarLegend`, and the public read-only `AvailabilityCalendar` (with prices, see [rental-pricing.md](rental-pricing.md)). |
+| `src/components/availability-calendar.tsx` | `CalendarMonths` (two-month pager, optional month `title` renderer), `CalendarLegend`, and the public `AvailabilityCalendar` (with prices, see [rental-pricing.md](rental-pricing.md), and stay picking, see [booking-requests.md](booking-requests.md)). |
 | `src/components/booking-calendar.tsx` | The admin `BookingCalendar`: selection, preview, Mark booked / available, saving and errors. |
 | `src/app/admin/(panel)/properties/[id]/page.tsx` | Booking calendar card for rentals. |
 | `src/app/(site)/properties/[code]/page.tsx` | Availability section for rentals. |

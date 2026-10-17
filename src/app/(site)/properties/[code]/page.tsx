@@ -9,6 +9,7 @@ import { LeadForm } from "@/components/lead-form";
 import { PropertyCard, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { ShareButton } from "@/components/share-button";
 import { cairoToday } from "@/lib/availability";
+import { bookingRental } from "@/lib/booking";
 import { descriptionSections } from "@/lib/descriptions";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
@@ -134,8 +135,9 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
               <h2 id="availability" className="mt-8 scroll-mt-24 text-lg font-bold">{p.availability}</h2>
               <p className="mt-1 text-sm text-cocoa">{p.availabilityHint}</p>
               <div className="card mt-3 p-4 sm:p-5">
-                {/* `?? []` covers rentals cached before booked days existed (docs/caching.md). */}
-                <AvailabilityCalendar booked={property.bookedDates ?? []} today={today} pricing={property} />
+                {/* `?? []` covers rentals cached before booked days existed (docs/caching.md). Only the
+                    fields the calendar needs go to the browser, never the seller's details. */}
+                <AvailabilityCalendar booked={property.bookedDates ?? []} today={today} rental={bookingRental(property)} />
               </div>
             </>
           )}

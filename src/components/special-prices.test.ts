@@ -2,6 +2,7 @@ import { createElement as h, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { makeProperty } from "@/test/fixtures";
+import { bookingRental } from "@/lib/booking";
 import ar from "@/lib/i18n/ar";
 import { DictProvider } from "@/lib/i18n/client";
 import en, { type Dict } from "@/lib/i18n/en";
@@ -104,7 +105,7 @@ describe("SpecialPrices on the rental form", () => {
 
 describe("AvailabilityCalendar prices on the property page", () => {
   const calendar = (o: Partial<Property>, booked: string[] = []) =>
-    render(h(AvailabilityCalendar, { booked, today: TODAY, pricing: makeProperty({ purpose: "rent", rentPeriod: "night", price: 3000, ...o }) }));
+    render(h(AvailabilityCalendar, { booked, today: TODAY, rental: bookingRental(makeProperty({ purpose: "rent", rentPeriod: "night", price: 3000, ...o })) }));
 
   it("shows each free night's price when the price changes by date", () => {
     const html = calendar({ weekendPrice: 4500 }, ["2026-10-16"]);
