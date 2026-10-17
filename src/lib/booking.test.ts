@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeProperty } from "@/test/fixtures";
 import {
-  addMonthsToDay,
   BOOKING_WHATSAPP,
   bookingHref,
   bookingMessage,
@@ -119,20 +118,6 @@ describe("canPick and pickDay", () => {
   });
 });
 
-describe("addMonthsToDay", () => {
-  it("keeps the day of the month", () => {
-    expect(addMonthsToDay("2026-10-18", 1)).toBe("2026-11-18");
-    expect(addMonthsToDay("2026-12-15", 1)).toBe("2027-01-15");
-    expect(addMonthsToDay("2027-01-31", 2)).toBe("2027-03-31");
-  });
-
-  it("uses the month's last day when it is shorter", () => {
-    expect(addMonthsToDay("2027-01-31", 1)).toBe("2027-02-28");
-    expect(addMonthsToDay("2028-01-31", 1)).toBe("2028-02-29");
-    expect(addMonthsToDay("2026-10-31", 1)).toBe("2026-11-30");
-  });
-});
-
 describe("stayTotal", () => {
   it("adds up each night of a nightly rental", () => {
     expect(stayTotal(nightly(), "2026-10-18", "2026-10-21")).toBe(9000);
@@ -153,23 +138,8 @@ describe("stayTotal", () => {
     expect(stayTotal(nightly({ rentPeriod: null }), "2026-10-18", "2026-10-20")).toBe(6000);
   });
 
-  it("charges each whole month of a monthly rental from check-in", () => {
-    expect(stayTotal(monthly(), "2026-10-18", "2026-11-18")).toBe(25_000);
-    expect(stayTotal(monthly(), "2026-10-18", "2026-12-18")).toBe(50_000);
-    expect(stayTotal(monthly(), "2027-01-31", "2027-02-28")).toBe(25_000);
-  });
-
-  it("charges the nights left over as their share of the month, rounded to the pound", () => {
-    // 15 of the 31 nights from 18 October to 18 November.
-    expect(stayTotal(monthly(), "2026-10-18", "2026-11-02")).toBe(Math.round((25_000 * 15) / 31));
-    // A month, then 15 of the 30 nights from 18 November to 18 December.
-    expect(stayTotal(monthly(), "2026-10-18", "2026-12-03")).toBe(37_500);
-  });
-
-  it("charges each month at the price of the month it starts in", () => {
-    const rental = monthly({ priceRules: [{ from: "2027-06", to: "2027-07", price: 40_000, weekendPrice: null }] });
-    // 20 May – 20 June starts in May (standard); 20 June – 20 July starts in June (special).
-    expect(stayTotal(rental, "2027-05-20", "2027-07-20")).toBe(65_000);
+  it("has no total for a monthly rental", () => {
+    expect(stayTotal(monthly(), "2026-10-18", "2026-11-18")).toBeNull();
   });
 });
 
@@ -183,6 +153,19 @@ describe("bookingMessage and bookingHref", () => {
         "Check-out: Sun, 18 Oct 2026",
         "Total nights: 4",
         "Total price: 15,000 EGP",
+        "Is it available on these dates?",
+      ].join("\n"),
+    );
+  });
+
+  it("leaves the total out for a monthly rental", () => {
+    expect(bookingMessage(en, monthly(), "2026-10-20", "2026-11-19")).toBe(
+      [
+        "Hi, I'm interested in the following booking:",
+        "Property: VILLA12 – Sea view villa",
+        "Check-in: Tue, 20 Oct 2026",
+        "Check-out: Thu, 19 Nov 2026",
+        "Total nights: 30",
         "Is it available on these dates?",
       ].join("\n"),
     );

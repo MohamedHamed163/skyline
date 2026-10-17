@@ -65,6 +65,14 @@ describe("BookingSummary", () => {
     expect(html).toContain('target="_blank" rel="noopener noreferrer"');
   });
 
+  it("shows no total on a monthly rental", () => {
+    const html = unescape(render(h(BookingSummary, { rental: { ...rental, rentPeriod: "month" }, stay: { checkIn: "2026-10-20", checkOut: "2026-11-19" }, onClear: () => {} })));
+    expect(html).toContain(">30</dd>");
+    expect(html).not.toContain(`>${en.booking.total}<`);
+    expect(html).not.toContain("EGP");
+    expect(new URL(html.match(/href="(https:\/\/wa\.me\/[^"]*)"/)![1]).searchParams.get("text")).not.toContain("Total price");
+  });
+
   it("is translated on the Arabic site", () => {
     const html = summary({ checkIn: "2026-10-14", checkOut: "2026-10-17" }, ar);
     expect(html).toContain(ar.booking.ask);

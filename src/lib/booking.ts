@@ -1,13 +1,13 @@
 // Booking requests on a rental's property page (docs/booking-requests.md). The customer picks a
-// check-in and a check-out day on the Availability calendar, sees the nights and the total price,
-// and sends Skyline a ready-made WhatsApp message asking whether those dates are free. Nothing is
-// booked or saved here: Skyline replies, then blocks the days on the admin calendar.
+// check-in and a check-out day on the Availability calendar, sees the nights (and the total price on
+// nightly rentals) and sends Skyline a ready-made WhatsApp message asking whether those dates are
+// free. Nothing is booked or saved here: Skyline replies, then blocks the days on the admin calendar.
 
-import { addDays, addMonths, daysBetween, lastBookableDay, monthOf, type Day } from "./availability";
+import { addDays, daysBetween, lastBookableDay, type Day } from "./availability";
 import { formatCalendarDay, formatPrice, whatsappHref } from "./format";
 import type { Dict } from "./i18n/en";
 import { fmt } from "./i18n/shared";
-import { monthQuote, nightQuote, type Pricing } from "./pricing";
+import { nightQuote, type Pricing } from "./pricing";
 import type { Property } from "./types";
 
 /** Skyline's WhatsApp number for booking requests. */
@@ -65,45 +65,26 @@ export function pickDay(stay: Stay | null, day: Day, booked: ReadonlySet<Day>, t
   return { checkIn: day, checkOut: null };
 }
 
-/** `day` plus `n` calendar months, on the same day of the month where it exists (31 Jan + 1 month = 28 Feb). */
-export function addMonthsToDay(day: Day, n: number): Day {
-  const month = addMonths(monthOf(day), n);
-  const monthLength = Number(addDays(`${addMonths(month, 1)}-01`, -1).slice(8));
-  return `${month}-${String(Math.min(Number(day.slice(8)), monthLength)).padStart(2, "0")}`;
-}
-
 /**
- * What a stay costs, rounded to the pound. Nightly rentals add up each night's price (weekend and
- * special prices included). Monthly rentals charge each whole month from check-in (18 Oct – 18 Nov)
- * at the price of the month it starts in, and the nights left over as their share of the month they
- * start (10 nights of a 30-night month cost a third of its price).
+ * What a stay costs: each night's price added up, weekend and special prices included. Monthly
+ * rentals have no total (null): the bar and the message leave it out and Skyline quotes the stay.
  */
-export function stayTotal(p: Pricing, checkIn: Day, checkOut: Day): number {
-  if (p.rentPeriod !== "month") return stayNights(checkIn, checkOut).reduce((sum, night) => sum + nightQuote(p, night).price, 0);
-  let total = 0;
-  for (let n = 0; ; n++) {
-    const start = addMonthsToDay(checkIn, n);
-    const end = addMonthsToDay(checkIn, n + 1);
-    const price = monthQuote(p, monthOf(start)).price;
-    if (end <= checkOut) {
-      total += price;
-    } else {
-      total += (price * stayNights(start, checkOut).length) / stayNights(start, end).length;
-      return Math.round(total);
-    }
-  }
+export function stayTotal(p: Pricing, checkIn: Day, checkOut: Day): number | null {
+  if (p.rentPeriod === "month") return null;
+  return stayNights(checkIn, checkOut).reduce((sum, night) => sum + nightQuote(p, night).price, 0);
 }
 
 /** The WhatsApp message asking Skyline whether a stay is free, in the site's language. */
 export function bookingMessage(t: Pick<Dict, "booking" | "currency" | "locale">, rental: Rental, checkIn: Day, checkOut: Day) {
   const m = t.booking.message;
+  const total = stayTotal(rental, checkIn, checkOut);
   return [
     m.greeting,
     fmt(m.property, { code: rental.code ?? "", title: rental.title }),
     fmt(m.checkIn, { day: formatCalendarDay(checkIn, t.locale) }),
     fmt(m.checkOut, { day: formatCalendarDay(checkOut, t.locale) }),
     fmt(m.nights, { n: stayNights(checkIn, checkOut).length }),
-    fmt(m.total, { price: formatPrice(stayTotal(rental, checkIn, checkOut), t.currency) }),
+    ...(total === null ? [] : [fmt(m.total, { price: formatPrice(total, t.currency) })]),
     m.question,
   ].join("\n");
 }

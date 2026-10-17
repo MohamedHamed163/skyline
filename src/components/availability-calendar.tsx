@@ -189,19 +189,23 @@ export function AvailabilityCalendar({ booked, today, rental }: { booked: string
 }
 
 /**
- * The bar under the property page's calendar: the stay picked so far, its nights and total, and the
- * button that opens WhatsApp with the booking message (docs/booking-requests.md).
+ * The bar under the property page's calendar: the stay picked so far, its nights and (except on
+ * monthly rentals) its total, and the button that opens WhatsApp with the booking message
+ * (docs/booking-requests.md).
  */
 export function BookingSummary({ rental, stay, onClear }: { rental: Rental; stay: Stay | null; onClear: () => void }) {
   const t = useDict();
   const b = t.booking;
   const complete = stay?.checkOut ? { checkIn: stay.checkIn, checkOut: stay.checkOut } : null;
+  // Monthly rentals show no total (docs/booking-requests.md).
+  const showTotal = rental.rentPeriod !== "month";
+  const total = complete && stayTotal(rental, complete.checkIn, complete.checkOut);
   const value = (text: string | null) => (text ? <dd className="font-semibold text-espresso">{text}</dd> : <dd className="text-cocoa/70">{b.pickDay}</dd>);
   const whatsappClass = "btn btn-sm bg-success text-deep hover:bg-success-dark";
 
   return (
     <div className="space-y-3 rounded-xl bg-ivory p-4">
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+      <dl className={`grid grid-cols-2 gap-x-4 gap-y-3 text-sm ${showTotal ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div>
           <dt className="text-xs text-cocoa">{b.checkIn}</dt>
           {value(stay && formatCalendarDay(stay.checkIn, t.locale))}
@@ -214,10 +218,12 @@ export function BookingSummary({ rental, stay, onClear }: { rental: Rental; stay
           <dt className="text-xs text-cocoa">{b.nights}</dt>
           {complete ? <dd className="font-semibold text-espresso">{stayNights(complete.checkIn, complete.checkOut).length}</dd> : <dd className="text-cocoa/70">–</dd>}
         </div>
-        <div>
-          <dt className="text-xs text-cocoa">{b.total}</dt>
-          {complete ? <dd className="font-bold text-espresso">{formatPrice(stayTotal(rental, complete.checkIn, complete.checkOut), t.currency)}</dd> : <dd className="text-cocoa/70">–</dd>}
-        </div>
+        {showTotal && (
+          <div>
+            <dt className="text-xs text-cocoa">{b.total}</dt>
+            {total !== null ? <dd className="font-bold text-espresso">{formatPrice(total, t.currency)}</dd> : <dd className="text-cocoa/70">–</dd>}
+          </div>
+        )}
       </dl>
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
         <p className="text-xs text-cocoa" role="status">

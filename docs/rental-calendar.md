@@ -38,8 +38,8 @@ Features and Location:
   WhatsApp whether they're free."
 - The same two-month calendar. Free days are green, booked days grey and crossed out, today has a
   gold outline, and past days are dimmed. A legend sits underneath.
-- Customers click a check-in and a check-out day, see the nights and total price in a bar under the
-  calendar and press **Ask on WhatsApp**. See [booking-requests.md](booking-requests.md).
+- Customers click a check-in and a check-out day, see the nights (and, on nightly rentals, the total
+  price) in a bar under the calendar and press **Ask on WhatsApp**. See [booking-requests.md](booking-requests.md).
 - Screen readers hear each day as "Tue, 13 Oct 2026, available" or "…, booked".
 - When the rental's price changes by date, each free night also shows its price (or each month its
   price under the month name). See [rental-pricing.md](rental-pricing.md).
