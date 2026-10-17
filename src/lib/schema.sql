@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS properties (
   id              text PRIMARY KEY,
-  code            text UNIQUE,              -- SKY-PRM-0001 / SKY-RES-0001, set on first approval
+  code            text UNIQUE,              -- SKY-PRM-0001 / SKY-RES-0001, set on first approval; rentals: typed by the admin
   title           text NOT NULL,
   listing_type    text NOT NULL,
   type            text NOT NULL,
@@ -74,6 +74,8 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS developer_description text NOT N
 
 -- Property-code counters. Sequences never hand out the same number twice.
 -- property_code_premium counts primary listings: it keeps its old name so the numbers carry on.
+-- New rentals take a code typed by the admin (docs/rental-codes.md); property_code_rent is only used
+-- when a listing without a code is published as a rental.
 CREATE SEQUENCE IF NOT EXISTS property_code_premium;
 CREATE SEQUENCE IF NOT EXISTS property_code_resale;
 CREATE SEQUENCE IF NOT EXISTS property_code_rent;

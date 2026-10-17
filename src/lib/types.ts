@@ -111,7 +111,10 @@ export type Seller = {
 
 export type Property = {
   id: string;
-  /** Skyline Property Code, e.g. SKY-RES-0001. Assigned on first approval and never changed. */
+  /**
+   * Skyline Property Code, e.g. SKY-RES-0001. Sales get theirs on first approval; rentals the one the
+   * admin typed when adding them (docs/rental-codes.md). Never changed.
+   */
   code: string | null;
   title: string;
   /** Primary or resale. Chosen by the seller on /submit; the admin can change it. */

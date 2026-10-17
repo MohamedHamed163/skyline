@@ -232,6 +232,9 @@ const ar: Dict = {
     bathrooms: "الحمامات",
     floor: "الطابق",
     floorPlaceholder: "0 = أرضي",
+    code: "كود الوحدة",
+    codePlaceholder: "SKY-RNT-0101",
+    codeHint: "يظهر على الإعلان وفي رابطه. حتى {max} حرفًا من الحروف الإنجليزية والأرقام والشرطات. لا يمكن تغييره لاحقًا.",
     price: "السعر ({currency})",
     standardPrice: "السعر العادي لكل {period} ({currency})",
     weekendPrice: "ليالي نهاية الأسبوع ({currency})",
@@ -313,6 +316,8 @@ const ar: Dict = {
     documentFailed: "تعذر إرفاق أحد المستندات. يُرجى حذفه ورفعه مرة أخرى.",
     calendarFailed: "تعذر تحديث التقويم. يُرجى المحاولة مرة أخرى.",
     priceRulesFailed: "تعذر حفظ الأسعار الخاصة. راجعها وحاول مرة أخرى.",
+    codeInvalid: "أدخل كود الوحدة بحد أقصى {max} حرفًا من الحروف الإنجليزية والأرقام والشرطات، مثل SKY-RNT-0101.",
+    codeTaken: "الكود {code} مستخدم بالفعل لعقار آخر. يُرجى اختيار كود مختلف.",
   },
   admin: {
     locations: {

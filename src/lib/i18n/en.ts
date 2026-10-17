@@ -234,6 +234,9 @@ const en = {
     bathrooms: "Bathrooms",
     floor: "Floor",
     floorPlaceholder: "0 = ground",
+    code: "Rental code",
+    codePlaceholder: "e.g. SKY-RNT-0101",
+    codeHint: "Shown on the listing and in its web address. Up to {max} English letters, numbers and dashes. It can't be changed later.",
     price: "Price ({currency})",
     standardPrice: "Standard price per {period} ({currency})",
     weekendPrice: "Weekend nights ({currency})",
@@ -315,6 +318,8 @@ const en = {
     documentFailed: "One of the documents couldn't be attached. Please remove it and upload it again.",
     calendarFailed: "Couldn't update the calendar. Please try again.",
     priceRulesFailed: "The special prices couldn't be saved. Check them and try again.",
+    codeInvalid: "Enter a rental code of up to {max} English letters, numbers and dashes, e.g. SKY-RNT-0101.",
+    codeTaken: "The code {code} is already used by another property. Please choose a different code.",
   },
   admin: {
     locations: {

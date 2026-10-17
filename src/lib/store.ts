@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { CACHE_TAGS, PUBLIC_DATA_TTL } from "./cache-tags";
 import { sql } from "./db";
+import { isCodeConflict } from "./property-codes";
 import { toListingType, type Lead, type LeadStatus, type Location, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
@@ -147,11 +148,24 @@ const propertyColumns = (p: PropertyInput) => ({
   seller_company: p.seller.company,
 });
 
-// Photos and documents are set on creation only; admin edits (updateProperty) keep them.
-export async function createProperty(input: PropertyInput & { photos: string[]; documents?: PropertyDocument[] }) {
-  const row = { id: newId(), ...propertyColumns(input), photos: sql().json(input.photos), documents: sql().json(input.documents ?? []) };
+// Photos and documents are set on creation only; admin edits (updateProperty) keep them. `code` is
+// the one the admin typed for a new rental (docs/rental-codes.md); without it the code is issued on
+// publishing (setPropertyStatus). A taken code fails with the unique error (isCodeConflict).
+export async function createProperty(input: PropertyInput & { photos: string[]; documents?: PropertyDocument[]; code?: string | null }) {
+  const row = {
+    id: newId(),
+    code: input.code ?? null,
+    ...propertyColumns(input),
+    photos: sql().json(input.photos),
+    documents: sql().json(input.documents ?? []),
+  };
   await sql()`INSERT INTO properties ${sql()(row)}`;
   return row.id;
+}
+
+/** Whether any property, in any status, already has this code (codes are stored in capitals). */
+export async function codeTaken(code: string) {
+  return (await sql()`SELECT 1 FROM properties WHERE code = ${code}`).length > 0;
 }
 
 export async function updateProperty(id: string, patch: PropertyInput & { adminNotes: string }) {
@@ -159,8 +173,24 @@ export async function updateProperty(id: string, patch: PropertyInput & { adminN
   await sql()`UPDATE properties SET ${sql()(row)} WHERE id = ${id}`;
 }
 
+/** How many sequence numbers setPropertyStatus tries before giving up on codes typed by the admin. */
+const CODE_ATTEMPTS = 10;
+
 export async function setPropertyStatus(id: string, status: PropertyStatus, adminNotes?: string) {
   // The code is issued on first approval, straight from a sequence, and never changes afterwards.
+  // A rental code the admin typed may already use the next number (e.g. SKY-RES-0042): the unique
+  // error is caught and the update retried. nextval is never rolled back, so each try gets the
+  // next number. Rows that already have a code never conflict.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await issueCodeAndSetStatus(id, status, adminNotes);
+    } catch (err) {
+      if (attempt >= CODE_ATTEMPTS || !isCodeConflict(err)) throw err;
+    }
+  }
+}
+
+async function issueCodeAndSetStatus(id: string, status: PropertyStatus, adminNotes?: string) {
   // 'premium' is the old name of 'primary', for rows schema.sql hasn't migrated yet.
   await sql()`
     UPDATE properties SET

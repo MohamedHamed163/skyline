@@ -14,6 +14,7 @@ import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./loca
 import { MAX_PHOTOS, maxPhotos } from "./photo-limits";
 import { uploadPhotos } from "./photos";
 import { readPriceRules } from "./pricing";
+import { isCodeConflict, MAX_CODE_LENGTH, normalizeCode, validCode } from "./property-codes";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
 import { COMPANY_DEFAULT_NAME } from "./sellers";
 import * as store from "./store";
@@ -275,6 +276,12 @@ export async function createPropertyAdmin(_prev: FormState, fd: FormData): Promi
   const t = (await getDict()).msg;
   const parsed = await parseProperty(fd, true);
   if ("error" in parsed) return { ok: false, message: parsed.error };
+  // A rental gets the code the admin typed; a sale gets one issued on publishing (docs/rental-codes.md).
+  const code = parsed.data.purpose === "rent" ? normalizeCode(String(fd.get("code") ?? "")) : undefined;
+  if (code !== undefined) {
+    if (!validCode(code)) return { ok: false, message: fmt(t.codeInvalid, { max: MAX_CODE_LENGTH }) };
+    if (await store.codeTaken(code)) return { ok: false, message: fmt(t.codeTaken, { code }) };
+  }
   const photos = fd.getAll("photos").map(String);
   // Rentals take more photos than sales (docs/photo-uploads.md).
   const max = maxPhotos(parsed.data.purpose);
@@ -286,9 +293,11 @@ export async function createPropertyAdmin(_prev: FormState, fd: FormData): Promi
   }
   let id: string;
   try {
-    id = await store.createProperty({ ...parsed.data, photos: await uploadPhotos(photos) });
+    id = await store.createProperty({ ...parsed.data, photos: await uploadPhotos(photos), code });
     await store.setPropertyStatus(id, "published");
   } catch (err) {
+    // Another rental was saved with the same code since the check above.
+    if (code && isCodeConflict(err)) return { ok: false, message: fmt(t.codeTaken, { code }) };
     console.error("Admin property creation failed", err);
     return { ok: false, message: t.saveFailed };
   }

@@ -1,22 +1,25 @@
 import Link from "next/link";
 import { EmptyState, LeadCard } from "@/components/admin-ui";
 import { fmt, getDict } from "@/lib/i18n";
-import { getLeads } from "@/lib/store";
+import { rentalIds } from "@/lib/property-codes";
+import { getLeads, getProperties } from "@/lib/store";
 import { LEAD_STATUSES } from "@/lib/types";
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const digits = (s: string) => s.replace(/\D/g, "");
 
 export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin/leads">) {
-  const [t, params, all] = await Promise.all([getDict(), searchParams, getLeads()]);
+  const [t, params, all, properties] = await Promise.all([getDict(), searchParams, getLeads(), getProperties()]);
   const a = t.admin;
   const q = one(params.q).trim().toLowerCase();
   const status = LEAD_STATUSES.find((s) => s === params.status);
   const rentals = params.purpose === "rent";
+  // Found through the property: rental codes are typed by the admin, so they share no prefix.
+  const rentalProperties = rentalIds(properties);
 
   const leads = all.filter((l) => {
     if (status && l.status !== status) return false;
-    if (rentals && !l.propertyCode?.startsWith("SKY-RNT")) return false;
+    if (rentals && !rentalProperties.has(l.propertyId ?? "")) return false;
     if (!q) return true;
     const haystack = [l.name, l.propertyCode, l.propertyTitle, l.email].join(" ").toLowerCase();
     if (haystack.includes(q)) return true;

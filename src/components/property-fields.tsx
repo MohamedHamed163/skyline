@@ -8,6 +8,7 @@ import { SpecialPrices } from "@/components/special-prices";
 import type { Day } from "@/lib/availability";
 import { hasDeveloperDescription } from "@/lib/descriptions";
 import { locationLabel } from "@/lib/locations";
+import { CODE_PATTERN, MAX_CODE_LENGTH } from "@/lib/property-codes";
 import { PROPERTY_LIMITS, TEXT_LIMITS } from "@/lib/validation";
 import {
   FEATURES,
@@ -121,6 +122,31 @@ export function PropertyFields({
             </select>
           </div>
         ) : null}
+        {/* A new rental takes the code the admin types (docs/rental-codes.md); sales still get theirs
+            on publishing. Kept mounted for sales, so switching back keeps the code; disabled, so it is
+            neither sent nor required then. An existing listing's code can't be changed here. */}
+        {admin && !d && (
+          <fieldset className="min-w-0 sm:col-span-2" disabled={!rent} hidden={!rent}>
+            <label className="label" htmlFor="code">
+              {f.code}
+            </label>
+            <input
+              id="code"
+              name="code"
+              required
+              maxLength={MAX_CODE_LENGTH}
+              pattern={CODE_PATTERN}
+              title={fmt(f.codeHint, { max: MAX_CODE_LENGTH })}
+              placeholder={f.codePlaceholder}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              dir="ltr"
+              className="field font-mono uppercase placeholder:normal-case sm:max-w-sm"
+            />
+            <p className="mt-1 text-xs text-cocoa">{fmt(f.codeHint, { max: MAX_CODE_LENGTH })}</p>
+          </fieldset>
+        )}
         {admin && (
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-ivory p-4 sm:col-span-2">
             <input type="checkbox" name="featured" defaultChecked={d?.featured} className="mt-0.5 h-5 w-5 shrink-0 accent-gold" />

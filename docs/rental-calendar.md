@@ -30,7 +30,7 @@ under the photos. It isn't shown for sale listings.
 
 ## Customer behaviour
 
-The property page of a rental (`/properties/SKY-RNT-…`) has an **Availability** section between
+The property page of a rental (`/properties/[code]`) has an **Availability** section between
 Features and Location:
 
 - "Crossed-out days are already booked. Request the dates you want and Skyline will confirm them."
