@@ -14,7 +14,7 @@ const SELLERS: Record<string, Seller> = {
 type SeedProperty = Omit<Property, "locationName">;
 type SeedInput = Omit<
   SeedProperty,
-  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules"
+  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "rentPeriod" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules" | "hostId" | "pendingEdit" | "editOutcome"
 > & {
   age: number;
   featured?: boolean;
@@ -33,6 +33,10 @@ const property = ({ age, featured = false, floor, developerDescription = "", ...
   priceRules: [],
   purpose: "sale",
   rentPeriod: null,
+  // Sample sellers have no host account (docs/host-accounts.md).
+  hostId: null,
+  pendingEdit: null,
+  editOutcome: null,
   previousStatus: p.status === "pending" ? null : "pending",
   adminNotes: "",
   createdAt: daysAgo(age),

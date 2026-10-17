@@ -15,10 +15,11 @@ Postgres is never queried.
 | `page` | Page loads and client-side navigations (GET/HEAD) | 120 / minute |
 | `prefetch` | Link prefetches (`next-router-prefetch` header). A page full of cards prefetches many links at once, so these get their own, larger bucket. | 600 / minute |
 | `action` | Form submissions / server actions (any non-GET) | 30 / minute |
-| `login` | Admin password attempts, checked inside `adminLogin` | 5 / 15 minutes |
+| `login` | Admin password attempts, checked inside `adminLogin`. Host sign-ins (`hostSignIn`) get the same allowance, counted separately. Host password changes (`changeHostPassword`) get it too, counted per account rather than per IP (see [host-accounts.md](host-accounts.md)). | 5 / 15 minutes |
+| `signUp` | New host accounts, checked inside `hostSignUp` after the form checks (see [host-accounts.md](host-accounts.md)) | 5 / hour |
 | `documentUpload` | Primary-listing document upload tokens, checked inside `/api/documents` (see [primary-documents.md](primary-documents.md)) | 10 / 10 minutes |
 
-A successful admin login resets that IP's `login` counter. Static files (`/_next/`, `/brand/`,
+A successful admin login resets that IP's `login` counter, and a successful host sign-in resets its own. A correct current password resets the account's password-change counter. Static files (`/_next/`, `/brand/`,
 `/listings/`, icons) are not counted.
 
 To change a limit, edit `LIMITS` in `src/lib/rate-limit.ts`.

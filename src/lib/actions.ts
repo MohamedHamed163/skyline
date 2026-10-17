@@ -9,8 +9,24 @@ import { CACHE_TAGS } from "./cache-tags";
 import { hasDeveloperDescription } from "./descriptions";
 import { readDocuments } from "./document-limits";
 import { verifyDocument } from "./documents";
+import {
+  canHostEdit,
+  checkPasswordChange,
+  checkSignUp,
+  isUsernameConflict,
+  normalizeUsername,
+  PASSWORD_MAX,
+  PASSWORD_MIN,
+  USERNAME_MAX,
+  USERNAME_MIN,
+  type PasswordChangeError,
+  type SignUpError,
+} from "./host-accounts";
+import { currentHost, endHostSession, hostSessionsEnabled, startHostSession } from "./host-auth";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
+import { holdsEdits, pickHostEdit } from "./listing-edits";
+import { DUMMY_HASH, generateTemporaryPassword, hashPassword, verifyPassword } from "./passwords";
 import { MAX_PHOTOS, maxPhotos } from "./photo-limits";
 import { uploadPhotos } from "./photos";
 import { readPriceRules } from "./pricing";
@@ -150,8 +166,12 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
 
 // ---- Broker / owner: submit a property for review ----
 
+// Every submission belongs to the signed-in host account that sent it (docs/host-accounts.md).
 export async function submitProperty(_prev: FormState, fd: FormData): Promise<FormState> {
-  const t = (await getDict()).msg;
+  const dict = await getDict();
+  const t = dict.msg;
+  const host = await currentHost();
+  if (!host) return { ok: false, message: dict.account.errors.signInAgain };
   const parsed = await parseProperty(fd);
   if ("error" in parsed) return { ok: false, message: parsed.error };
 
@@ -170,13 +190,150 @@ export async function submitProperty(_prev: FormState, fd: FormData): Promise<Fo
   }
 
   try {
-    await store.createProperty({ ...parsed.data, photos: await uploadPhotos(photos), documents });
+    await store.createProperty({ ...parsed.data, photos: await uploadPhotos(photos), documents, hostId: host.id });
   } catch (err) {
     console.error("Property submission failed", err);
     return { ok: false, message: t.saveFailed };
   }
   revalidatePath("/admin", "layout");
   return { ok: true, message: t.submitted };
+}
+
+// ---- Broker / owner: host accounts (docs/host-accounts.md) ----
+
+const formErrorVars: Record<SignUpError | PasswordChangeError, Record<string, number>> = {
+  usernameInvalid: { min: USERNAME_MIN, max: USERNAME_MAX },
+  passwordShort: { min: PASSWORD_MIN },
+  passwordLong: { max: PASSWORD_MAX },
+  passwordMismatch: {},
+  passwordUnchanged: {},
+};
+
+/** Creates an account and signs it in. It's the host's first listing, so they go on to the form. */
+export async function hostSignUp(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = (await getDict()).account.errors;
+  if (!hostSessionsEnabled()) return { ok: false, message: t.notConfigured };
+  const username = normalizeUsername(text(fd, "username", 100));
+  const password = String(fd.get("password") ?? "");
+  const error = checkSignUp({ username, password, confirm: String(fd.get("confirmPassword") ?? "") });
+  if (error) return { ok: false, message: fmt(t[error], formErrorVars[error]) };
+  // Counted after the form checks, so typing mistakes don't use up the allowance.
+  const hit = limiter.hit(`signup:${clientIp(await headers())}`, LIMITS.signUp);
+  if (!hit.ok) return { ok: false, message: fmt(t.tooManySignUps, { minutes: Math.ceil(hit.resetMs / 60_000) }) };
+
+  let id: string;
+  try {
+    if (await store.getHostLogin(username)) return { ok: false, message: fmt(t.usernameTaken, { username }) };
+    id = await store.createHost({ username, passwordHash: await hashPassword(password) });
+  } catch (err) {
+    // Someone else took the username since the check above.
+    if (isUsernameConflict(err)) return { ok: false, message: fmt(t.usernameTaken, { username }) };
+    console.error("Host sign-up failed", err);
+    return { ok: false, message: t.createFailed };
+  }
+  await startHostSession(id, 0); // a new account's session_version
+  redirect("/submit");
+}
+
+/** Signs a returning host in and opens their listings, where "List a property" starts the next one. */
+export async function hostSignIn(_prev: FormState, fd: FormData): Promise<FormState> {
+  const dict = await getDict();
+  const t = dict.account.errors;
+  if (!hostSessionsEnabled()) return { ok: false, message: t.notConfigured };
+  // Same allowance as the admin login, counted separately.
+  const key = `host-login:${clientIp(await headers())}`;
+  const hit = limiter.hit(key, LIMITS.login);
+  if (!hit.ok) return { ok: false, message: fmt(dict.msg.tooManyAttempts, { minutes: Math.ceil(hit.resetMs / 60_000) }) };
+  const password = String(fd.get("password") ?? "");
+  if (password.length > PASSWORD_MAX) return { ok: false, message: t.wrongLogin };
+  const login = await store.getHostLogin(normalizeUsername(text(fd, "username", 100)));
+  // An unknown username is checked against DUMMY_HASH, so it takes as long as a wrong password.
+  const valid = await verifyPassword(password, login?.passwordHash ?? DUMMY_HASH);
+  if (!login || !valid) return { ok: false, message: t.wrongLogin };
+  limiter.reset(key);
+  await startHostSession(login.host.id, login.host.sessionVersion);
+  redirect("/account");
+}
+
+export async function hostSignOut() {
+  await endHostSession();
+  redirect("/submit");
+}
+
+/**
+ * A signed-in host changes their password from /account: the current one, then the new one twice.
+ * Every other session of the account is signed out; this browser gets a new cookie and stays in.
+ */
+export async function changeHostPassword(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = (await getDict()).account;
+  const host = await currentHost();
+  if (!host) return { ok: false, message: t.errors.signInAgain };
+  const current = String(fd.get("currentPassword") ?? "");
+  const password = String(fd.get("password") ?? "");
+  const error = checkPasswordChange({ current, password, confirm: String(fd.get("confirmPassword") ?? "") });
+  if (error) return { ok: false, message: fmt(t.errors[error], formErrorVars[error]) };
+  // The sign-in allowance, counted per account: someone holding a stolen session can't guess the
+  // current password from many connections. A correct one clears the count.
+  const key = `host-password:${host.id}`;
+  const hit = limiter.hit(key, LIMITS.login);
+  if (!hit.ok) return { ok: false, message: fmt(t.errors.tooManyPasswordAttempts, { minutes: Math.ceil(hit.resetMs / 60_000) }) };
+  const login = current.length <= PASSWORD_MAX ? await store.getHostLogin(host.username) : undefined;
+  if (!login || login.host.id !== host.id || !(await verifyPassword(current, login.passwordHash))) {
+    return { ok: false, message: t.errors.wrongCurrentPassword };
+  }
+  limiter.reset(key);
+  let version: number | undefined;
+  try {
+    version = await store.setHostPassword(host.id, await hashPassword(password), false);
+  } catch (err) {
+    console.error("Host password change failed", err);
+    return { ok: false, message: t.errors.passwordChangeFailed };
+  }
+  if (version === undefined) return { ok: false, message: t.errors.signInAgain };
+  await startHostSession(host.id, version);
+  return { ok: true, message: t.passwordChanged };
+}
+
+/**
+ * A host edits one of their own listings from /account (docs/host-edit-approval.md). While nothing is
+ * live (pending, needs changes) the edit is saved onto the listing, which goes to review. On a
+ * published listing it is held for the admin, and the website keeps showing the listing as it was
+ * until they approve it. Photos come in order: ones the listing or its waiting edit already has, by
+ * URL, and new ones as downscaled JPEGs, uploaded here. Documents are never changed.
+ */
+export async function updateHostProperty(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  const dict = await getDict();
+  const t = dict.msg;
+  const host = await currentHost();
+  if (!host) return { ok: false, message: dict.account.errors.signInAgain };
+  const property = await store.getProperty(id);
+  if (!property || property.hostId !== host.id) return { ok: false, message: t.unavailable };
+  if (!canHostEdit(property)) return { ok: false, message: dict.account.locked };
+  const parsed = await parseProperty(fd);
+  if ("error" in parsed) return { ok: false, message: parsed.error };
+
+  const photos = fd.getAll("photos").map(String);
+  if (photos.length < 1 || photos.length > MAX_PHOTOS) return { ok: false, message: fmt(t.photoCount, { max: MAX_PHOTOS }) };
+  const known = new Set([...property.photos, ...(property.pendingEdit?.values.photos ?? [])]);
+  const fresh = photos.filter((p) => !known.has(p));
+  if (fresh.some((p) => !p.startsWith("data:image/jpeg;base64,") || p.length > MAX_PHOTO_CHARS)) return { ok: false, message: t.photoFailed };
+
+  const held = holdsEdits(property);
+  try {
+    const uploaded = fresh.length ? await uploadPhotos(fresh) : [];
+    const edit = pickHostEdit({ ...parsed.data, photos: photos.map((p) => (known.has(p) ? p : uploaded.shift()!)) });
+    const saved = held
+      ? await store.saveHostEdit(id, host.id, { values: edit, submittedAt: new Date().toISOString() })
+      : await store.updateHostProperty(id, host.id, edit);
+    // The admin changed the status since the page was opened (e.g. published it).
+    if (!saved) return { ok: false, message: dict.account.errors.changedMeanwhile };
+  } catch (err) {
+    console.error("Host property update failed", err);
+    return { ok: false, message: t.saveFailed };
+  }
+  // Nothing public changes yet either way: a held edit waits, and an in-place edit isn't live.
+  revalidatePath("/", "layout");
+  return { ok: true, message: held ? dict.account.sentForApproval : dict.account.savedForReview };
 }
 
 // ---- Customer: request more information ----
@@ -252,6 +409,28 @@ export async function requestChanges(id: string, fd: FormData) {
   revalidatePath("/", "layout");
 }
 
+// ---- Admin: host edits waiting for approval (docs/host-edit-approval.md) ----
+
+/**
+ * Applies a host's waiting edit to the live listing. `submittedAt` is the version the admin was
+ * shown: a newer save by the host is left waiting instead of being approved unseen.
+ */
+export async function approveHostEdit(id: string, submittedAt: string) {
+  await requireAdmin();
+  const edit = (await store.getProperty(id))?.pendingEdit;
+  if (!edit || edit.submittedAt !== submittedAt) return;
+  await store.approveHostEdit(id, edit, { result: "approved", note: "", at: new Date().toISOString() });
+  updateTag(CACHE_TAGS.properties);
+  revalidatePath("/", "layout");
+}
+
+/** Discards a host's waiting edit; the listing stays as it was. The optional note is shown to the host. */
+export async function rejectHostEdit(id: string, submittedAt: string, fd: FormData) {
+  await requireAdmin();
+  await store.rejectHostEdit(id, submittedAt, { result: "rejected", note: text(fd, "editNote", 1000), at: new Date().toISOString() });
+  revalidatePath("/", "layout");
+}
+
 export async function updateProperty(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = await parseProperty(fd, true);
@@ -304,6 +483,29 @@ export async function createPropertyAdmin(_prev: FormState, fd: FormData): Promi
   updateTag(CACHE_TAGS.properties);
   revalidatePath("/", "layout");
   redirect(`/admin/properties/${id}`);
+}
+
+// ---- Admin: host accounts (docs/host-accounts.md) ----
+
+export type TemporaryPasswordResult = { ok: true; password: string } | { ok: false; message: string };
+
+/**
+ * Gives a host who forgot their password a temporary one, which the admin passes on; it is returned
+ * once and never stored in plain text. The account's sessions are all signed out, and /account asks
+ * the host to choose their own password.
+ */
+export async function resetHostPassword(hostId: string): Promise<TemporaryPasswordResult> {
+  await requireAdmin();
+  const t = (await getDict()).admin.hostPassword;
+  const password = generateTemporaryPassword();
+  try {
+    // undefined: no such account.
+    if ((await store.setHostPassword(hostId, await hashPassword(password), true)) === undefined) return { ok: false, message: t.failed };
+  } catch (err) {
+    console.error("Temporary host password failed", err);
+    return { ok: false, message: t.failed };
+  }
+  return { ok: true, password };
 }
 
 // ---- Admin: rental booking calendar ----

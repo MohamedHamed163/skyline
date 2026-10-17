@@ -1,3 +1,5 @@
+import type { EditOutcome, PendingEdit } from "./listing-edits";
+
 export const LISTING_TYPES = ["primary", "resale"] as const;
 export type ListingType = (typeof LISTING_TYPES)[number];
 
@@ -156,12 +158,36 @@ export type Property = {
   bookedDates: string[];
   /** Private: never rendered on public pages. */
   seller: Seller;
+  /**
+   * The host account that listed it on /submit (docs/host-accounts.md). null for properties the
+   * admin added and for those sent before accounts existed.
+   */
+  hostId: string | null;
+  /**
+   * A host's edit to the published listing, waiting for the admin; the live fields above are
+   * unchanged until it is approved (docs/host-edit-approval.md). null when there is none.
+   */
+  pendingEdit: PendingEdit | null;
+  /** The admin's decision on the host's last edit, for /account. null before any decision. */
+  editOutcome: EditOutcome | null;
   status: PropertyStatus;
   previousStatus: PropertyStatus | null;
   /** Internal admin notes (e.g. what must change before approval). */
   adminNotes: string;
   createdAt: string;
   updatedAt: string;
+};
+
+/** A broker or owner's account (docs/host-accounts.md). The password hash never leaves store.ts. */
+export type Host = {
+  id: string;
+  /** Lower case, unique. */
+  username: string;
+  /** Signed into the session cookie; a password change moves it on, signing out other sessions. */
+  sessionVersion: number;
+  /** The admin set this password for the host, who should choose their own. */
+  temporaryPassword: boolean;
+  createdAt: string;
 };
 
 export type Lead = {

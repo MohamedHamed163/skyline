@@ -102,3 +102,8 @@ export const ExchangeIcon = ({ className }: P) => (
     <path d="M4 8h15m0 0-3.5-3.5M19 8l-3.5 3.5M20 16H5m0 0 3.5-3.5M5 16l3.5 3.5" />
   </svg>
 );
+export const UserIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" />
+  </svg>
+);

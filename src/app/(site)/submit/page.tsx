@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { HostBar } from "@/components/account-ui";
+import { HostAuthForm } from "@/components/host-auth-form";
 import { PropertyForm } from "@/components/property-form";
+import { currentHost, knownHost } from "@/lib/host-auth";
 import { getDict } from "@/lib/i18n";
 import { getActiveLocations } from "@/lib/store";
 
@@ -7,8 +10,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getDict()).submit.metaTitle };
 }
 
+// Signed-in hosts get the property form. Everyone else first creates an account, or signs in if this
+// browser has had one before (docs/host-accounts.md).
 export default async function SubmitPage() {
-  const [{ submit: t }, locations] = await Promise.all([getDict(), getActiveLocations()]);
+  const [dict, host] = await Promise.all([getDict(), currentHost()]);
+  const t = dict.submit;
   return (
     <>
       <section className="bg-espresso text-white">
@@ -28,9 +34,18 @@ export default async function SubmitPage() {
       </section>
 
       <section className="container-page py-12">
-        <div className="card mx-auto max-w-3xl p-6 sm:p-10">
-          <PropertyForm mode="public" locations={locations} />
-        </div>
+        {host ? (
+          <div className="mx-auto max-w-3xl">
+            <HostBar t={dict} host={host} />
+            <div className="card p-6 sm:p-10">
+              <PropertyForm mode="public" locations={await getActiveLocations()} />
+            </div>
+          </div>
+        ) : (
+          <div className="card mx-auto max-w-md p-6 sm:p-8">
+            <HostAuthForm initialMode={(await knownHost()) ? "signIn" : "signUp"} />
+          </div>
+        )}
       </section>
     </>
   );

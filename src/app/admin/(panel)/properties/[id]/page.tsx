@@ -5,6 +5,8 @@ import { LeadStatusBadge, StatusActions, StatusBadge } from "@/components/admin-
 import { BookingCalendar } from "@/components/booking-calendar";
 import { CopyCode } from "@/components/copy-button";
 import { EditPropertyForm } from "@/components/edit-property-form";
+import { HostEditReview } from "@/components/host-edit-review";
+import { HostPasswordReset } from "@/components/host-password-reset";
 import { DocumentIcon } from "@/components/icons";
 import { Photo, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
 import { requestChanges } from "@/lib/actions";
@@ -13,7 +15,7 @@ import { floorText, formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { sellerName, sellerWithType } from "@/lib/sellers";
 import { selectableLocations } from "@/lib/locations";
-import { getLeads, getLocations, getProperty } from "@/lib/store";
+import { getHost, getLeads, getLocations, getProperty } from "@/lib/store";
 
 function Field({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
   return (
@@ -33,12 +35,15 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
 
   const { seller } = property;
   const leads = (await getLeads()).filter((l) => l.propertyId === property.id);
+  // The broker or owner's account, when they sent it from /submit (docs/host-accounts.md).
+  const host = property.hostId ? await getHost(property.hostId) : undefined;
   const canRequestChanges = property.status === "pending" || property.status === "needs_changes";
 
   const history = [
     [a.currentStatus, t.status[property.status]],
     [a.previousStatus, property.previousStatus ? t.status[property.previousStatus] : t.none],
     [a.submittedBy, sellerWithType(t, seller)],
+    ...(host ? [[a.hostAccount, host.username]] : []),
     [a.created, formatDate(property.createdAt, t.locale)],
     [a.lastUpdated, formatDate(property.updatedAt, t.locale)],
   ];
@@ -79,6 +84,8 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           <StatusActions property={property} />
         </div>
       </div>
+
+      <HostEditReview t={t} property={property} host={host} locations={locations} />
 
       <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
         {property.photos.map((src, i) => (
@@ -151,12 +158,21 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
               <Field key={label} label={label} value={value} />
             ))}
           </dl>
+          {property.editOutcome && (
+            <p className="mt-3 text-sm text-cocoa">
+              {fmt(property.editOutcome.result === "approved" ? a.hostEdit.lastApproved : a.hostEdit.lastRejected, {
+                date: formatDate(property.editOutcome.at, t.locale),
+              })}{" "}
+              {property.editOutcome.note && <span dir="auto">“{property.editOutcome.note}”</span>}
+            </p>
+          )}
           {property.adminNotes && (
             <p className="mt-3 whitespace-pre-line rounded-lg bg-violet-50 p-3 text-sm text-violet-900">
               <span className="font-semibold">{a.internalNotes}: </span>
               <span dir="auto">{property.adminNotes}</span>
             </p>
           )}
+          {host && <HostPasswordReset hostId={host.id} username={host.username} />}
         </section>
 
         <section className="card p-5">

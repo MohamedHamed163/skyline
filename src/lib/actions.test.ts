@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeLocation, makeProperty } from "@/test/fixtures";
+import { makeHost, makeLocation, makeProperty } from "@/test/fixtures";
 import en from "./i18n/en";
 
 // Server actions with the database, auth, uploads and Next.js runtime mocked out.
@@ -15,8 +15,18 @@ const store = vi.hoisted(() => ({
   getProperty: vi.fn(),
   setBookedDates: vi.fn(),
   setPropertyStatus: vi.fn(),
+  getHostLogin: vi.fn(),
+  createHost: vi.fn(),
+  setHostPassword: vi.fn(),
+  updateHostProperty: vi.fn(),
+  saveHostEdit: vi.fn(),
+  approveHostEdit: vi.fn(),
+  rejectHostEdit: vi.fn(),
 }));
 const auth = vi.hoisted(() => ({ isAdmin: vi.fn() }));
+const hostAuth = vi.hoisted(() => ({ currentHost: vi.fn(), hostSessionsEnabled: vi.fn(), startHostSession: vi.fn(), endHostSession: vi.fn() }));
+// Each test calls from its own IP, so the sign-in and sign-up rate limits don't carry over.
+const client = vi.hoisted(() => ({ ip: "" }));
 const photos = vi.hoisted(() => ({ uploadPhotos: vi.fn() }));
 const documents = vi.hoisted(() => ({ verifyDocument: vi.fn() }));
 const nav = vi.hoisted(() => ({
@@ -27,14 +37,31 @@ const nav = vi.hoisted(() => ({
 
 vi.mock("./store", () => store);
 vi.mock("./auth", () => ({ ...auth, checkPassword: vi.fn(), startSession: vi.fn(), endSession: vi.fn() }));
+vi.mock("./host-auth", () => hostAuth);
 vi.mock("./photos", () => photos);
 vi.mock("./documents", () => documents);
 vi.mock("./i18n", async () => ({ ...(await import("./i18n/shared")), getDict: async () => en, isLocale: () => true, LOCALE_COOKIE: "lang" }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
-vi.mock("next/headers", () => ({ cookies: vi.fn() }));
+vi.mock("next/headers", () => ({ cookies: vi.fn(), headers: async () => new Headers({ "x-forwarded-for": client.ip }) }));
 vi.mock("next/navigation", () => nav);
 
-const { createLocation, createPropertyAdmin, setBookedDays, setLocationArchived, submitProperty, updateLocation, updateProperty } = await import("./actions");
+const {
+  approveHostEdit,
+  changeHostPassword,
+  createLocation,
+  createPropertyAdmin,
+  hostSignIn,
+  hostSignOut,
+  hostSignUp,
+  rejectHostEdit,
+  resetHostPassword,
+  setBookedDays,
+  setLocationArchived,
+  submitProperty,
+  updateHostProperty,
+  updateLocation,
+  updateProperty,
+} = await import("./actions");
 
 const form = (fields: Record<string, string | string[]>) => {
   const fd = new FormData();
@@ -43,10 +70,15 @@ const form = (fields: Record<string, string | string[]>) => {
 };
 
 const JPEG = "data:image/jpeg;base64,AAAA";
+const HOST = makeHost({ sessionVersion: 4 });
+let ipCount = 0;
 
 beforeEach(() => {
   vi.clearAllMocks();
   auth.isAdmin.mockResolvedValue(true);
+  hostAuth.currentHost.mockResolvedValue(HOST);
+  hostAuth.hostSessionsEnabled.mockReturnValue(true);
+  client.ip = `10.0.0.${++ipCount}`;
   store.getLocations.mockResolvedValue([makeLocation(), makeLocation({ id: "giza", nameEn: "Giza", nameAr: "الجيزة", archived: true })]);
   photos.uploadPhotos.mockResolvedValue(["https://blob.example/locations/photo.jpg"]);
   documents.verifyDocument.mockResolvedValue(true);
@@ -772,5 +804,366 @@ describe("rental codes typed by the admin", () => {
   it("leaves the code alone when a listing is edited", async () => {
     await updateProperty("p1", null, form({ ...rental, code: "NEW-CODE" }));
     expect(store.updateProperty.mock.calls[0][1]).not.toHaveProperty("code");
+  });
+});
+
+describe("host accounts: sign up", () => {
+  const signUp = (o: Record<string, string> = {}) => hostSignUp(null, form({ username: "Ahmed.Broker", password: "secret-pass", confirmPassword: "secret-pass", ...o }));
+
+  beforeEach(() => {
+    store.getHostLogin.mockResolvedValue(undefined);
+    store.createHost.mockResolvedValue("h9");
+  });
+
+  it("creates the account in lower case with a hashed password, signs it in and opens the form", async () => {
+    await expect(signUp()).rejects.toThrow("REDIRECT /submit");
+    const [{ username, passwordHash }] = store.createHost.mock.calls[0];
+    expect(username).toBe("ahmed.broker");
+    expect(passwordHash).not.toContain("secret-pass");
+    const { verifyPassword } = await import("./passwords");
+    expect(await verifyPassword("secret-pass", passwordHash)).toBe(true);
+    expect(hostAuth.startHostSession).toHaveBeenCalledWith("h9", 0);
+  });
+
+  it("checks the form before touching the database", async () => {
+    expect(await signUp({ username: "a b" })).toEqual({ ok: false, message: "Choose a username of 3–30 English letters or numbers (dots, dashes and underscores are allowed in between)." });
+    expect(await signUp({ password: "short", confirmPassword: "short" })).toEqual({ ok: false, message: "Your password must have at least 8 characters." });
+    expect(await signUp({ confirmPassword: "secret-pasS" })).toEqual({ ok: false, message: en.account.errors.passwordMismatch });
+    expect(store.getHostLogin).not.toHaveBeenCalled();
+    expect(store.createHost).not.toHaveBeenCalled();
+  });
+
+  it("refuses a username that is taken, in any letter case", async () => {
+    store.getHostLogin.mockResolvedValue({ host: HOST, passwordHash: "x" });
+    expect(await signUp({ username: "AHMED" })).toEqual({ ok: false, message: "The username ahmed is taken. Please choose another one." });
+    expect(store.getHostLogin).toHaveBeenCalledWith("ahmed");
+    expect(store.createHost).not.toHaveBeenCalled();
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+
+  it("reports a username taken between the check and the insert", async () => {
+    store.createHost.mockRejectedValue({ code: "23505", constraint_name: "hosts_username_key" });
+    expect(await signUp()).toEqual({ ok: false, message: "The username ahmed.broker is taken. Please choose another one." });
+  });
+
+  it("reports storage failures", async () => {
+    store.createHost.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await signUp()).toEqual({ ok: false, message: en.account.errors.createFailed });
+  });
+
+  it("allows 5 new accounts an hour per connection", async () => {
+    for (let i = 0; i < 5; i++) await expect(signUp({ username: `host${i}` })).rejects.toThrow("REDIRECT");
+    expect((await signUp({ username: "host5" }))?.message).toMatch(/^Too many new accounts from this connection/);
+    expect(store.createHost).toHaveBeenCalledTimes(5);
+  });
+
+  it("is unavailable without a session secret", async () => {
+    hostAuth.hostSessionsEnabled.mockReturnValue(false);
+    expect(await signUp()).toEqual({ ok: false, message: en.account.errors.notConfigured });
+    expect(store.createHost).not.toHaveBeenCalled();
+  });
+});
+
+describe("host accounts: sign in and out", () => {
+  let passwordHash = "";
+  const signIn = (username: string, password: string) => hostSignIn(null, form({ username, password }));
+
+  beforeEach(async () => {
+    passwordHash ||= await (await import("./passwords")).hashPassword("secret-pass");
+    store.getHostLogin.mockImplementation(async (u: string) => (u === "ahmed" ? { host: HOST, passwordHash } : undefined));
+  });
+
+  it("signs in with the right password, in any letter case, and opens the account", async () => {
+    await expect(signIn(" Ahmed ", "secret-pass")).rejects.toThrow("REDIRECT /account");
+    // With the account's session version, so a later password change ends this session.
+    expect(hostAuth.startHostSession).toHaveBeenCalledWith("h1", HOST.sessionVersion);
+  });
+
+  it("gives the same answer for a wrong password and an unknown username", async () => {
+    const wrong = { ok: false, message: en.account.errors.wrongLogin };
+    expect(await signIn("ahmed", "secret-pasS")).toEqual(wrong);
+    expect(await signIn("nobody", "secret-pass")).toEqual(wrong);
+    expect(await signIn("ahmed", "x".repeat(129))).toEqual(wrong);
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+
+  it("allows 5 wrong attempts per 15 minutes, and a good sign-in clears the count", async () => {
+    for (let i = 0; i < 4; i++) await signIn("ahmed", "wrong");
+    await expect(signIn("ahmed", "secret-pass")).rejects.toThrow("REDIRECT /account");
+    for (let i = 0; i < 5; i++) expect((await signIn("ahmed", "wrong"))?.message).toBe(en.account.errors.wrongLogin);
+    expect((await signIn("ahmed", "secret-pass"))?.message).toBe("Too many sign-in attempts. Try again in 15 min.");
+  });
+
+  it("is unavailable without a session secret", async () => {
+    hostAuth.hostSessionsEnabled.mockReturnValue(false);
+    expect(await signIn("ahmed", "secret-pass")).toEqual({ ok: false, message: en.account.errors.notConfigured });
+  });
+
+  it("signs out back to the List a property page", async () => {
+    await expect(hostSignOut()).rejects.toThrow("REDIRECT /submit");
+    expect(hostAuth.endHostSession).toHaveBeenCalled();
+  });
+});
+
+describe("host accounts: change password", () => {
+  let passwordHash = "";
+  let host = makeHost();
+  let accounts = 0;
+  const change = (o: Record<string, string> = {}) =>
+    changeHostPassword(null, form({ currentPassword: "secret-pass", password: "new-secret", confirmPassword: "new-secret", ...o }));
+
+  beforeEach(async () => {
+    passwordHash ||= await (await import("./passwords")).hashPassword("secret-pass");
+    // A new account in each test: wrong passwords are counted per account.
+    host = makeHost({ id: `pw${++accounts}`, sessionVersion: 4 });
+    hostAuth.currentHost.mockResolvedValue(host);
+    store.getHostLogin.mockImplementation(async (u: string) => (u === host.username ? { host, passwordHash } : undefined));
+    store.setHostPassword.mockResolvedValue(5);
+  });
+
+  it("saves the new password hashed, signs out the other sessions and keeps this one", async () => {
+    expect(await change()).toEqual({ ok: true, message: en.account.passwordChanged });
+    const [id, hash, temporary] = store.setHostPassword.mock.calls[0];
+    expect([id, temporary]).toEqual([host.id, false]);
+    const { verifyPassword } = await import("./passwords");
+    expect(await verifyPassword("new-secret", hash)).toBe(true);
+    expect(hostAuth.startHostSession).toHaveBeenCalledWith(host.id, 5);
+  });
+
+  it("refuses when signed out, e.g. after a password change in another browser", async () => {
+    hostAuth.currentHost.mockResolvedValue(null);
+    expect(await change()).toEqual({ ok: false, message: en.account.errors.signInAgain });
+    expect(store.setHostPassword).not.toHaveBeenCalled();
+  });
+
+  it("checks the new password before the current one", async () => {
+    expect(await change({ password: "short", confirmPassword: "short" })).toEqual({ ok: false, message: "Your password must have at least 8 characters." });
+    expect(await change({ confirmPassword: "new-secreT" })).toEqual({ ok: false, message: en.account.errors.passwordMismatch });
+    expect(await change({ password: "secret-pass", confirmPassword: "secret-pass" })).toEqual({ ok: false, message: en.account.errors.passwordUnchanged });
+    expect(store.getHostLogin).not.toHaveBeenCalled();
+    expect(store.setHostPassword).not.toHaveBeenCalled();
+  });
+
+  it("refuses a wrong current password", async () => {
+    const wrong = { ok: false, message: en.account.errors.wrongCurrentPassword };
+    expect(await change({ currentPassword: "secret-pasS" })).toEqual(wrong);
+    expect(await change({ currentPassword: "x".repeat(129) })).toEqual(wrong);
+    expect(store.setHostPassword).not.toHaveBeenCalled();
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+
+  it("allows 5 wrong current passwords per 15 minutes per account, and a right one clears the count", async () => {
+    for (let i = 0; i < 4; i++) await change({ currentPassword: "wrong" });
+    expect((await change())?.ok).toBe(true);
+    for (let i = 0; i < 5; i++) expect((await change({ currentPassword: "wrong" }))?.message).toBe(en.account.errors.wrongCurrentPassword);
+    expect((await change())?.message).toBe("Too many wrong passwords. Try again in 15 min.");
+    // Another connection doesn't get a new allowance: it belongs to the account.
+    client.ip = "10.9.9.9";
+    expect((await change())?.message).toBe("Too many wrong passwords. Try again in 15 min.");
+    expect(store.setHostPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports storage failures, and an account deleted meanwhile", async () => {
+    store.setHostPassword.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await change()).toEqual({ ok: false, message: en.account.errors.passwordChangeFailed });
+    store.setHostPassword.mockResolvedValueOnce(undefined);
+    expect(await change()).toEqual({ ok: false, message: en.account.errors.signInAgain });
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin: temporary host password", () => {
+  beforeEach(() => {
+    store.setHostPassword.mockResolvedValue(3);
+  });
+
+  it("sets a temporary password, returns it once and signs the host out everywhere", async () => {
+    const result = await resetHostPassword("h1");
+    if (!result.ok) throw new Error(result.message);
+    expect(result.password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
+    const [id, hash, temporary] = store.setHostPassword.mock.calls[0];
+    expect([id, temporary]).toEqual(["h1", true]);
+    expect(hash).not.toContain(result.password);
+    const { verifyPassword } = await import("./passwords");
+    expect(await verifyPassword(result.password, hash)).toBe(true);
+    // The admin's browser doesn't get a host session.
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+
+  it("is admin-only", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(resetHostPassword("h1")).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.setHostPassword).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing account and storage failures", async () => {
+    store.setHostPassword.mockResolvedValueOnce(undefined);
+    expect(await resetHostPassword("gone")).toEqual({ ok: false, message: en.admin.hostPassword.failed });
+    store.setHostPassword.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await resetHostPassword("h1")).toEqual({ ok: false, message: en.admin.hostPassword.failed });
+  });
+});
+
+describe("host accounts: listings", () => {
+  const LIVE_PHOTO = "/listings/villa-1.jpg";
+  const fields = {
+    listingType: "primary",
+    title: "Villa in New Cairo",
+    type: "villa",
+    location: "new-cairo",
+    price: "9000000",
+    area: "300",
+    bedrooms: "4",
+    bathrooms: "3",
+    sellerType: "owner",
+    sellerName: "Ahmed",
+    sellerPhone: "+20 100 000 0000",
+  };
+  const edited = (o: Record<string, string | string[]> = {}) => form({ ...fields, photos: LIVE_PHOTO, ...o });
+
+  beforeEach(() => {
+    photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]);
+    store.getProperty.mockResolvedValue(makeProperty({ id: "p1", hostId: "h1", status: "published", photos: [LIVE_PHOTO] }));
+    store.updateHostProperty.mockResolvedValue(true);
+    store.saveHostEdit.mockResolvedValue(true);
+  });
+
+  it("files a submission under the signed-in host", async () => {
+    expect(await submitProperty(null, form({ ...fields, photos: JPEG }))).toEqual({ ok: true, message: en.msg.submitted });
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ hostId: "h1", title: "Villa in New Cairo" }));
+  });
+
+  it("refuses a submission once signed out, without uploading anything", async () => {
+    hostAuth.currentHost.mockResolvedValue(null);
+    expect(await submitProperty(null, form({ ...fields, photos: JPEG }))).toEqual({ ok: false, message: en.account.errors.signInAgain });
+    expect(photos.uploadPhotos).not.toHaveBeenCalled();
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("holds an edit to a published listing for the admin, leaving the live listing alone", async () => {
+    const result = await updateHostProperty("p1", null, edited({ listingType: "resale", featured: "on", purpose: "rent" }));
+    expect(result).toEqual({ ok: true, message: en.account.sentForApproval });
+    expect(store.updateHostProperty).not.toHaveBeenCalled();
+    const [id, hostId, { values, submittedAt }] = store.saveHostEdit.mock.calls[0];
+    expect([id, hostId]).toEqual(["p1", "h1"]);
+    expect(Date.parse(submittedAt)).not.toBeNaN();
+    expect(values).toEqual(expect.objectContaining({ listingType: "resale", title: "Villa in New Cairo", photos: [LIVE_PHOTO] }));
+    // Only host-editable fields: never the admin's home-page pick or the purpose.
+    expect(values).not.toHaveProperty("featured");
+    expect(values).not.toHaveProperty("purpose");
+  });
+
+  it("edits a listing that isn't live yet in place", async () => {
+    for (const status of ["pending", "needs_changes"] as const) {
+      store.getProperty.mockResolvedValue(makeProperty({ hostId: "h1", status, photos: [LIVE_PHOTO] }));
+      expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: true, message: en.account.savedForReview });
+    }
+    expect(store.updateHostProperty).toHaveBeenCalledTimes(2);
+    expect(store.updateHostProperty).toHaveBeenCalledWith("p1", "h1", expect.objectContaining({ title: "Villa in New Cairo" }));
+    expect(store.saveHostEdit).not.toHaveBeenCalled();
+  });
+
+  it("keeps photos in order, uploading only the new ones", async () => {
+    await updateHostProperty("p1", null, edited({ photos: [JPEG, LIVE_PHOTO] }));
+    expect(photos.uploadPhotos).toHaveBeenCalledWith([JPEG]);
+    expect(store.saveHostEdit.mock.calls[0][2].values.photos).toEqual(["https://blob.example/properties/photo.jpg", LIVE_PHOTO]);
+  });
+
+  it("keeps photos from the waiting edit when the host edits it again", async () => {
+    const waiting = { values: { ...makeProperty(), photos: ["https://blob.example/properties/waiting.jpg"] }, submittedAt: "2026-10-17T10:00:00.000Z" };
+    store.getProperty.mockResolvedValue(makeProperty({ hostId: "h1", status: "published", photos: [LIVE_PHOTO], pendingEdit: waiting }));
+    expect((await updateHostProperty("p1", null, edited({ photos: ["https://blob.example/properties/waiting.jpg"] })))?.ok).toBe(true);
+    expect(photos.uploadPhotos).not.toHaveBeenCalled();
+  });
+
+  it("refuses photos that aren't the listing's own or a downscaled JPEG, and a wrong count", async () => {
+    expect(await updateHostProperty("p1", null, edited({ photos: "https://evil.example/x.jpg" }))).toEqual({ ok: false, message: en.msg.photoFailed });
+    expect(await updateHostProperty("p1", null, form(fields))).toEqual({ ok: false, message: "Please add between 1 and 8 photos." });
+    expect(await updateHostProperty("p1", null, edited({ photos: Array(9).fill(LIVE_PHOTO) }))).toEqual({ ok: false, message: "Please add between 1 and 8 photos." });
+    expect(store.saveHostEdit).not.toHaveBeenCalled();
+    expect(photos.uploadPhotos).not.toHaveBeenCalled();
+  });
+
+  it("refuses when signed out", async () => {
+    hostAuth.currentHost.mockResolvedValue(null);
+    expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: false, message: en.account.errors.signInAgain });
+    expect(store.saveHostEdit).not.toHaveBeenCalled();
+  });
+
+  it("refuses someone else's listing, and ones the admin added", async () => {
+    for (const hostId of ["h2", null]) {
+      store.getProperty.mockResolvedValue(makeProperty({ hostId }));
+      expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: false, message: en.msg.unavailable });
+    }
+    store.getProperty.mockResolvedValue(undefined);
+    expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: false, message: en.msg.unavailable });
+    expect(store.saveHostEdit).not.toHaveBeenCalled();
+    expect(store.updateHostProperty).not.toHaveBeenCalled();
+  });
+
+  it("refuses reserved, sold, archived and rejected listings", async () => {
+    for (const status of ["reserved", "sold", "archived", "rejected"] as const) {
+      store.getProperty.mockResolvedValue(makeProperty({ hostId: "h1", status }));
+      expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: false, message: en.account.locked });
+    }
+    expect(store.saveHostEdit).not.toHaveBeenCalled();
+  });
+
+  it("asks to reload when the admin changed the status since the page was opened", async () => {
+    store.saveHostEdit.mockResolvedValue(false);
+    expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: false, message: en.account.errors.changedMeanwhile });
+  });
+
+  it("checks the fields like /submit does", async () => {
+    expect(await updateHostProperty("p1", null, edited({ price: "0" }))).toEqual({
+      ok: false,
+      message: "Price (EGP) must be a whole number from 1 to 1,000,000,000.",
+    });
+    expect(store.saveHostEdit).not.toHaveBeenCalled();
+  });
+
+  it("reports storage failures", async () => {
+    store.saveHostEdit.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await updateHostProperty("p1", null, edited())).toEqual({ ok: false, message: en.msg.saveFailed });
+  });
+});
+
+describe("admin: host edits waiting for approval", () => {
+  const SUBMITTED = "2026-10-17T10:00:00.000Z";
+  const waiting = { values: { ...makeProperty(), title: "New title" }, submittedAt: SUBMITTED };
+
+  beforeEach(() => {
+    store.getProperty.mockResolvedValue(makeProperty({ hostId: "h1", pendingEdit: waiting }));
+    store.approveHostEdit.mockResolvedValue(true);
+    store.rejectHostEdit.mockResolvedValue(true);
+  });
+
+  it("approves the version the admin was shown", async () => {
+    await approveHostEdit("p1", SUBMITTED);
+    expect(store.approveHostEdit).toHaveBeenCalledWith("p1", waiting, { result: "approved", note: "", at: expect.any(String) });
+  });
+
+  it("leaves a newer edit waiting instead of approving it unseen", async () => {
+    await approveHostEdit("p1", "2026-10-17T09:00:00.000Z");
+    store.getProperty.mockResolvedValue(makeProperty());
+    await approveHostEdit("p1", SUBMITTED);
+    expect(store.approveHostEdit).not.toHaveBeenCalled();
+  });
+
+  it("rejects with the admin's note for the host", async () => {
+    await rejectHostEdit("p1", SUBMITTED, form({ editNote: " Photos are too dark " }));
+    expect(store.rejectHostEdit).toHaveBeenCalledWith("p1", SUBMITTED, { result: "rejected", note: "Photos are too dark", at: expect.any(String) });
+  });
+
+  it("requires an admin", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(approveHostEdit("p1", SUBMITTED)).rejects.toThrow("REDIRECT /admin/login");
+    await expect(rejectHostEdit("p1", SUBMITTED, form({}))).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.approveHostEdit).not.toHaveBeenCalled();
+    expect(store.rejectHostEdit).not.toHaveBeenCalled();
   });
 });

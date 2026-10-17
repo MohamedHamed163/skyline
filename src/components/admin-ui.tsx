@@ -3,30 +3,11 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { CopyCode } from "@/components/copy-button";
+import { Badge, STATUS_TONE, type TONES } from "@/components/status-badge";
 import { setPropertyStatus, updateLead } from "@/lib/actions";
 import { formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { LEAD_STATUSES, type Lead, type LeadStatus, type Property, type PropertyStatus } from "@/lib/types";
-
-const TONES = {
-  amber: "bg-amber-100 text-amber-800",
-  green: "bg-success/15 text-success-deep",
-  blue: "bg-info/25 text-espresso",
-  red: "bg-red-100 text-red-700",
-  violet: "bg-violet-100 text-violet-700",
-  gray: "bg-line text-cocoa",
-  dark: "bg-espresso text-white",
-};
-
-const STATUS_TONE: Record<PropertyStatus, keyof typeof TONES> = {
-  pending: "amber",
-  published: "green",
-  needs_changes: "violet",
-  rejected: "red",
-  reserved: "blue",
-  sold: "dark",
-  archived: "gray",
-};
 
 const LEAD_TONE: Record<LeadStatus, keyof typeof TONES> = {
   new: "amber",
@@ -37,10 +18,6 @@ const LEAD_TONE: Record<LeadStatus, keyof typeof TONES> = {
   closed: "dark",
   not_interested: "gray",
 };
-
-function Badge({ tone, children }: { tone: keyof typeof TONES; children: React.ReactNode }) {
-  return <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${TONES[tone]}`}>{children}</span>;
-}
 
 export function StatusBadge({ status }: { status: PropertyStatus }) {
   const t = useDict();

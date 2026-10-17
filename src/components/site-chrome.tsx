@@ -1,12 +1,14 @@
 import Image from "next/image";
+import { UserIcon } from "@/components/icons";
 import { LanguageSwitch } from "@/components/language-switch";
 import { NavLink, NavMenu } from "@/components/nav-link";
+import { currentHostId } from "@/lib/host-auth";
 import { getDict } from "@/lib/i18n";
 
-export function Logo({ href = "/", className = "" }: { href?: string; className?: string }) {
+export function Logo({ href = "/", className = "", imageClassName = "h-10" }: { href?: string; className?: string; imageClassName?: string }) {
   return (
     <NavLink href={href} className={`inline-flex shrink-0 items-center ${className}`}>
-      <Image src="/brand/skyline-logo.png" alt="Skyline" width={1459} height={400} priority className="h-10 w-auto" />
+      <Image src="/brand/skyline-logo.png" alt="Skyline" width={1459} height={400} priority className={`${imageClassName} w-auto`} />
     </NavLink>
   );
 }
@@ -30,22 +32,41 @@ async function navItems() {
 export async function SiteHeader() {
   const t = await getDict();
   const nav = await navItems();
+  // Signed-in brokers and owners get a link to their listings (docs/host-accounts.md): beside "List a
+  // property" from 640px up (icon only while the inline menu shares the row, 1024–1279px), and first in
+  // the scrolling menu row on phones, where the top row has no room for it.
+  const host = await currentHostId();
+  const account = { href: "/account", label: <><UserIcon className="me-1 align-[-2px]" />{t.account.myAccount}</> };
+  const rowLink = "shrink-0 rounded-lg px-3 py-1.5 hover:text-gold-light";
+  // The 7 links only fit beside the buttons from 1024px; narrower screens get them in a scrolling
+  // second row, so the header never makes the page scroll sideways (docs/site-header.md).
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-espresso/95 text-cream backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Logo />
-        <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
-          <NavMenu items={nav} className="rounded-lg px-3 py-2 hover:text-gold-light" activeClassName={ACTIVE} />
+        <Logo imageClassName="h-8 sm:h-10" />
+        <nav className="hidden items-center gap-1 text-sm font-medium lg:flex">
+          <NavMenu items={nav} className="whitespace-nowrap rounded-lg px-2.5 py-2 hover:text-gold-light xl:px-3" activeClassName={ACTIVE} />
         </nav>
         <div className="flex items-center gap-2">
           <LanguageSwitch dark />
-          <NavLink href="/submit" className="btn-primary">
+          {host && (
+            <NavLink
+              href="/account"
+              aria-label={t.account.myAccount}
+              className="btn btn-sm hidden border border-cream/30 whitespace-nowrap text-cream hover:border-gold hover:text-gold-light sm:inline-flex"
+            >
+              <UserIcon />
+              <span className="lg:hidden xl:inline">{t.account.myAccount}</span>
+            </NavLink>
+          )}
+          <NavLink href="/submit" className="btn-primary whitespace-nowrap max-sm:rounded-lg max-sm:px-3 max-sm:py-1.5 max-sm:text-xs">
             {t.nav.listProperty}
           </NavLink>
         </div>
       </div>
-      <nav className="container-page flex gap-1 overflow-x-auto pb-2 text-sm font-medium md:hidden">
-        <NavMenu items={nav} className="shrink-0 rounded-lg px-3 py-1.5 hover:text-gold-light" activeClassName={ACTIVE} />
+      <nav className="container-page flex gap-1 overflow-x-auto pb-2 text-sm font-medium lg:hidden">
+        {host && <NavMenu items={[account]} className={`${rowLink} sm:hidden`} activeClassName={ACTIVE} />}
+        <NavMenu items={nav} className={rowLink} activeClassName={ACTIVE} />
       </nav>
     </header>
   );

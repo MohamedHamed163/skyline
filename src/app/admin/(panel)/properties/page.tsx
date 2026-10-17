@@ -26,6 +26,8 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
   const compound = one(params.compound);
   const seller = SELLER_TYPES.find((v) => v === params.seller);
   const purpose = PURPOSES.find((v) => v === params.purpose);
+  // "Edits to approve" in the sidebar: host edits waiting (docs/host-edit-approval.md).
+  const edits = one(params.edits) === "waiting";
 
   const compounds = [...new Set(all.map((p) => p.compound).filter(Boolean))].sort();
 
@@ -47,10 +49,11 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
       (!location || p.location === location) &&
       (!compound || p.compound === compound) &&
       (!seller || p.seller.type === seller) &&
-      (!purpose || p.purpose === purpose),
+      (!purpose || p.purpose === purpose) &&
+      (!edits || Boolean(p.pendingEdit)),
   );
 
-  const filtered = Boolean(q || listing || statusParam || type || location || compound || seller || purpose);
+  const filtered = Boolean(q || listing || statusParam || type || location || compound || seller || purpose || edits);
   const c = a.columns;
   const headers = [c.code, c.title, c.type, c.listing, c.compound, c.location, c.price, c.seller, c.status, c.created, c.updated, c.actions];
 
@@ -58,7 +61,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{purpose === "rent" ? a.nav.rentals : a.propertiesTitle}</h1>
+          <h1 className="text-2xl font-bold">{edits ? a.nav.edits : purpose === "rent" ? a.nav.rentals : a.propertiesTitle}</h1>
           <p className="mt-1 text-sm text-cocoa">{fmt(a.ofCount, { shown: rows.length, total: all.length })}</p>
         </div>
         <div className="flex gap-2">
@@ -72,6 +75,7 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
       </div>
 
       <form className="card mt-5 grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+        {edits && <input type="hidden" name="edits" value="waiting" />}
         <input name="q" defaultValue={one(params.q)} placeholder={a.searchProperties} aria-label={t.search} className="field col-span-2 md:col-span-4" />
         <select name="purpose" defaultValue={purpose ?? ""} aria-label={t.fields.purposeField} className="field">
           <option value="">{a.anyPurpose}</option>
@@ -167,6 +171,11 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
                       {p.title}
                     </Link>
                     {p.featured && <span className="mt-1 block text-xs font-semibold text-gold-deep">{a.onHomePage}</span>}
+                    {p.pendingEdit && (
+                      <Link href={`/admin/properties/${p.id}`} className="mt-1 inline-block rounded-full bg-gold/20 px-2 py-0.5 text-xs font-semibold text-gold-deep">
+                        {a.editWaiting}
+                      </Link>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">{t.type[p.type]}</td>
                   <td className="whitespace-nowrap px-3 py-3">{p.purpose === "rent" ? t.purposeBadge.rent : t.listing[p.listingType]}</td>

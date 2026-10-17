@@ -3,8 +3,10 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { CACHE_TAGS, PUBLIC_DATA_TTL } from "./cache-tags";
 import { sql } from "./db";
+import { HOST_EDITABLE } from "./host-accounts";
+import { holdsEdits, type EditOutcome, type HostEdit, type PendingEdit } from "./listing-edits";
 import { isCodeConflict } from "./property-codes";
-import { toListingType, type Lead, type LeadStatus, type Location, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
+import { toListingType, type Host, type Lead, type LeadStatus, type Location, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
 
@@ -48,6 +50,11 @@ const toProperty = (r: Row): Property => ({
     whatsapp: r.seller_whatsapp as string,
     company: r.seller_company as string,
   },
+  // Reads as "no account" before schema.sql adds the column.
+  hostId: (r.host_id as string | null | undefined) ?? null,
+  // Read as "none" before schema.sql adds the columns.
+  pendingEdit: (r.pending_edit as PendingEdit | null | undefined) ?? null,
+  editOutcome: (r.edit_outcome as EditOutcome | null | undefined) ?? null,
   status: r.status as PropertyStatus,
   previousStatus: r.previous_status as PropertyStatus | null,
   adminNotes: r.admin_notes as string,
@@ -118,7 +125,7 @@ export async function getProperty(id: string) {
 
 export type PropertyInput = Omit<
   Property,
-  "id" | "code" | "locationName" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "bookedDates" | "createdAt" | "updatedAt"
+  "id" | "code" | "locationName" | "hostId" | "pendingEdit" | "editOutcome" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "bookedDates" | "createdAt" | "updatedAt"
 >;
 
 const propertyColumns = (p: PropertyInput) => ({
@@ -151,13 +158,18 @@ const propertyColumns = (p: PropertyInput) => ({
 // Photos and documents are set on creation only; admin edits (updateProperty) keep them. `code` is
 // the one the admin typed for a new rental (docs/rental-codes.md); without it the code is issued on
 // publishing (setPropertyStatus). A taken code fails with the unique error (isCodeConflict).
-export async function createProperty(input: PropertyInput & { photos: string[]; documents?: PropertyDocument[]; code?: string | null }) {
+// `hostId` is the account that sent it from /submit (docs/host-accounts.md); the column is only
+// written when there is one, so the admin can still add properties before schema.sql adds it.
+export async function createProperty(
+  input: PropertyInput & { photos: string[]; documents?: PropertyDocument[]; code?: string | null; hostId?: string | null },
+) {
   const row = {
     id: newId(),
     code: input.code ?? null,
     ...propertyColumns(input),
     photos: sql().json(input.photos),
     documents: sql().json(input.documents ?? []),
+    ...(input.hostId && { host_id: input.hostId }),
   };
   await sql()`INSERT INTO properties ${sql()(row)}`;
   return row.id;
@@ -171,6 +183,87 @@ export async function codeTaken(code: string) {
 export async function updateProperty(id: string, patch: PropertyInput & { adminNotes: string }) {
   const row = { ...propertyColumns(patch), admin_notes: patch.adminNotes, updated_at: new Date() };
   await sql()`UPDATE properties SET ${sql()(row)} WHERE id = ${id}`;
+}
+
+// ---- Host edits (docs/host-edit-approval.md) ----
+
+// The columns a host can change: the /submit fields and the photos. The admin's own settings (home
+// page, purpose, rental prices, notes), the documents and the code are never touched.
+const hostEditColumns = (e: HostEdit) => ({
+  title: e.title,
+  listing_type: e.listingType,
+  type: e.type,
+  location: e.location,
+  compound: e.compound,
+  area: e.area,
+  bedrooms: e.bedrooms,
+  bathrooms: e.bathrooms,
+  floor: e.floor,
+  price: e.price,
+  description: e.description,
+  developer_description: e.developerDescription,
+  features: sql().json(e.features),
+  seller_type: e.seller.type,
+  seller_name: e.seller.name,
+  seller_phone: e.seller.phone,
+  seller_whatsapp: e.seller.whatsapp,
+  seller_company: e.seller.company,
+  photos: sql().json(e.photos),
+});
+
+/** Editable statuses where nothing is live yet, so a host's save changes the listing directly. */
+const IN_PLACE_STATUSES = HOST_EDITABLE.filter((status) => !holdsEdits({ status }));
+
+/**
+ * A host's edit to a listing that isn't live yet (pending or needs changes): saved straight onto it,
+ * and the listing goes (back) to review. Only matches the host's own sale listing in one of those
+ * statuses, and says whether it did.
+ */
+export async function updateHostProperty(id: string, hostId: string, edit: HostEdit) {
+  const rows = await sql()`
+    UPDATE properties SET ${sql()({ ...hostEditColumns(edit), updated_at: new Date() })},
+      previous_status = CASE WHEN status <> 'pending' THEN status ELSE previous_status END,
+      status = 'pending',
+      pending_edit = NULL,
+      edit_outcome = NULL
+    WHERE id = ${id} AND host_id = ${hostId} AND purpose = 'sale' AND status = ANY(${IN_PLACE_STATUSES})
+    RETURNING id`;
+  return rows.length > 0;
+}
+
+/**
+ * A host's edit to their published listing, held for the admin. The live listing (and "Last
+ * updated") stay as they are; a newer edit replaces a waiting one. Says whether it matched.
+ */
+export async function saveHostEdit(id: string, hostId: string, edit: PendingEdit) {
+  const rows = await sql()`
+    UPDATE properties SET pending_edit = ${sql().json(edit)}, edit_outcome = NULL
+    WHERE id = ${id} AND host_id = ${hostId} AND purpose = 'sale' AND status = 'published'
+    RETURNING id`;
+  return rows.length > 0;
+}
+
+/**
+ * The admin approves a waiting edit: its values become the listing's. Only applies the version the
+ * admin looked at (`edit.submittedAt`), so a newer save by the host is never approved unseen.
+ */
+export async function approveHostEdit(id: string, edit: PendingEdit, outcome: EditOutcome) {
+  const rows = await sql()`
+    UPDATE properties SET ${sql()({ ...hostEditColumns(edit.values), updated_at: new Date() })},
+      pending_edit = NULL,
+      edit_outcome = ${sql().json(outcome)}
+    WHERE id = ${id} AND pending_edit->>'submittedAt' = ${edit.submittedAt}
+    RETURNING id`;
+  return rows.length > 0;
+}
+
+/** The admin rejects a waiting edit: it is discarded and the listing stays as it was. */
+export async function rejectHostEdit(id: string, submittedAt: string, outcome: EditOutcome) {
+  const rows = await sql()`
+    UPDATE properties SET pending_edit = NULL, edit_outcome = ${sql().json(outcome)}
+    WHERE id = ${id} AND pending_edit->>'submittedAt' = ${submittedAt}
+    RETURNING id`;
+  return rows.length > 0;
 }
 
 /** How many sequence numbers setPropertyStatus tries before giving up on codes typed by the admin. */
@@ -269,4 +362,51 @@ export async function updateLead(id: string, patch: { status: LeadStatus; notes:
   await sql()`
     UPDATE leads SET status = ${patch.status}, notes = ${patch.notes}, updated_at = now()
     WHERE id = ${id}`;
+}
+
+// ---- Host accounts (docs/host-accounts.md) ----
+
+const toHost = (r: Row): Host => ({
+  id: r.id as string,
+  username: r.username as string,
+  sessionVersion: Number(r.session_version ?? 0),
+  temporaryPassword: Boolean(r.password_temporary),
+  createdAt: iso(r.created_at),
+});
+
+export async function getHost(id: string) {
+  const [row] = await sql()`SELECT id, username, session_version, password_temporary, created_at FROM hosts WHERE id = ${id}`;
+  return row ? toHost(row) : undefined;
+}
+
+/** An account with its password hash, for signing in. `username` must be normalized (lower case). */
+export async function getHostLogin(username: string) {
+  const [row] = await sql()`SELECT * FROM hosts WHERE username = ${username}`;
+  return row ? { host: toHost(row), passwordHash: row.password_hash as string } : undefined;
+}
+
+/** Fails with the unique error (isUsernameConflict) when the username was taken in the meantime. */
+export async function createHost(input: { username: string; passwordHash: string }) {
+  const row = { id: newId(), username: input.username, password_hash: input.passwordHash };
+  await sql()`INSERT INTO hosts ${sql()(row)}`;
+  return row.id;
+}
+
+/**
+ * Replaces a host's password and moves session_version on, which signs out every session the
+ * account has. `temporary`: the admin set it, so /account asks the host to choose their own. Returns
+ * the new session version (to keep the browser that changed it signed in), or undefined when the
+ * account doesn't exist.
+ */
+export async function setHostPassword(id: string, passwordHash: string, temporary: boolean) {
+  const [row] = await sql()`
+    UPDATE hosts SET password_hash = ${passwordHash}, password_temporary = ${temporary}, session_version = session_version + 1
+    WHERE id = ${id}
+    RETURNING session_version`;
+  return row ? Number(row.session_version) : undefined;
+}
+
+/** A host's listings in every status, newest first. */
+export async function getHostProperties(hostId: string) {
+  return (await sql()`${PROPERTY_SELECT()} WHERE p.host_id = ${hostId} ORDER BY p.created_at DESC`).map(toProperty);
 }

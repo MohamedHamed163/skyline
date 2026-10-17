@@ -111,3 +111,31 @@ END $$;
 
 -- "Premium" listings were renamed "Primary" (docs/listing-types.md). Codes (SKY-PRM-…) are unchanged.
 UPDATE properties SET listing_type = 'primary' WHERE listing_type = 'premium';
+
+-- Host accounts (docs/host-accounts.md): brokers and owners create one with a username and password
+-- the first time they list a property, then see and edit their listings at /account. Usernames are
+-- stored in lower case; password_hash is "scrypt$<salt>$<hash>" (src/lib/passwords.ts).
+CREATE TABLE IF NOT EXISTS hosts (
+  id            text PRIMARY KEY,
+  username      text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- Password changes (docs/host-accounts.md). session_version is signed into the session cookie and
+-- moves on with every password change, which signs out the account's other sessions.
+-- password_temporary: the admin set the password, so /account asks the host to choose their own.
+ALTER TABLE hosts ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFAULT 0;
+ALTER TABLE hosts ADD COLUMN IF NOT EXISTS password_temporary boolean NOT NULL DEFAULT false;
+
+-- The account that listed a property. NULL for properties the admin added and those sent before
+-- accounts existed.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS host_id text REFERENCES hosts (id);
+CREATE INDEX IF NOT EXISTS properties_host_idx ON properties (host_id);
+
+-- Host edits to published listings wait for the admin (docs/host-edit-approval.md). pending_edit:
+-- { "values": {title, listingType, …, seller, photos}, "submittedAt" }, NULL when none; the live
+-- columns are untouched until the admin approves it. edit_outcome: the admin's last decision,
+-- { "result": "approved" | "rejected", "note", "at" }, shown to the host on /account.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS pending_edit jsonb;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS edit_outcome jsonb;

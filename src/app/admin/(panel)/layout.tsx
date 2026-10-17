@@ -19,12 +19,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [t, properties, leads] = await Promise.all([getDict(), getProperties(), getLeads()]);
   const n = t.admin.nav;
   const pending = properties.filter((p) => p.status === "pending").length;
+  // Host edits to published listings waiting for approval (docs/host-edit-approval.md).
+  const edits = properties.filter((p) => p.pendingEdit).length;
   const newLeads = leads.filter((l) => l.status === "new").length;
 
   const nav: { href: string; label: string; count?: number }[] = [
     { href: "/admin", label: n.dashboard },
     { href: "/admin/properties", label: n.properties },
     { href: "/admin/properties?status=pending", label: n.pending, count: pending },
+    { href: "/admin/properties?edits=waiting", label: n.edits, count: edits },
     { href: "/admin/properties?listing=primary", label: n.primary },
     { href: "/admin/properties?listing=resale", label: n.resale },
     { href: "/admin/properties?purpose=rent", label: n.rentals },

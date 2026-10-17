@@ -79,13 +79,18 @@ export const LIMITS = {
   prefetch: { max: 600, windowMs: MINUTE },
   /** Form submissions / server actions (anything that isn't GET or HEAD). */
   action: { max: 30, windowMs: MINUTE },
-  /** Admin password attempts (checked in the login action itself). */
+  /**
+   * Admin password attempts, and host sign-in attempts counted separately (checked in the actions).
+   * Host password changes use it too, counted per account.
+   */
   login: { max: 5, windowMs: 15 * MINUTE },
+  /** New host accounts (checked in the sign-up action itself). */
+  signUp: { max: 5, windowMs: 60 * MINUTE },
   /** Primary-listing document uploads (checked in /api/documents itself). */
   documentUpload: { max: 10, windowMs: 10 * MINUTE },
 } satisfies Record<string, Limit>;
 
-export type Bucket = Exclude<keyof typeof LIMITS, "login" | "documentUpload">;
+export type Bucket = Exclude<keyof typeof LIMITS, "login" | "signUp" | "documentUpload">;
 
 export function bucketFor(method: string, headers: Headers): Bucket {
   if (method !== "GET" && method !== "HEAD") return "action";

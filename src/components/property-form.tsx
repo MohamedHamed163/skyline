@@ -1,14 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useCallback, useState, useTransition } from "react";
 import { DocumentField } from "@/components/document-field";
+import { PhotoPicker } from "@/components/photo-picker";
 import { PropertyFields } from "@/components/property-fields";
 import { createPropertyAdmin, submitProperty } from "@/lib/actions";
 import type { Day } from "@/lib/availability";
 import { fmt, useDict } from "@/lib/i18n/client";
-import { toJpegDataUrl } from "@/lib/jpeg";
 import { MAX_DOCUMENT_MB } from "@/lib/document-limits";
-import { checkPhotos, fitBudget, MAX_PHOTO_MB, maxPhotos, photoTargetChars } from "@/lib/photo-limits";
+import { maxPhotos } from "@/lib/photo-limits";
 import { withFailureMessage } from "@/lib/safe-action";
 import { DOCUMENT_KINDS, LISTING_TYPES, type DocumentKind, type ListingType, type Location, type Purpose } from "@/lib/types";
 
@@ -22,7 +23,6 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
   const [state, action, pending] = useActionState(withFailureMessage(admin ? createPropertyAdmin : submitProperty, t.msg.requestFailed), null);
   const [, startTransition] = useTransition();
   const [photos, setPhotos] = useState<string[]>([]);
-  const [photoError, setPhotoError] = useState("");
   const [purpose, setPurpose] = useState<Purpose>(admin ? defaultPurpose : "sale");
   const limit = maxPhotos(purpose);
   // A rental switched back to a sale can hold more photos than a sale allows.
@@ -36,31 +36,22 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
   const primary = !admin && listingType === "primary";
   const waitForDocuments = primary && uploading.length > 0;
 
-  async function addPhotos(files: FileList | null) {
-    if (!files) return;
-    setPhotoError("");
-    const { accepted: picked, tooLarge, overCount } = checkPhotos(Array.from(files), limit - photos.length);
-    if (tooLarge.length) setPhotoError(fmt(t.submit.tooLarge, { mb: MAX_PHOTO_MB, files: tooLarge.join(", ") }));
-    else if (overCount) setPhotoError(fmt(t.submit.maxPhotos, { max: limit }));
-    const used = photos.reduce((n, p) => n + p.length, 0);
-    try {
-      const urls = await Promise.all(picked.map((f) => toJpegDataUrl(f, photoTargetChars(used, photos.length, limit))));
-      const kept = fitBudget(urls, used);
-      if (kept.length < urls.length) setPhotoError(t.submit.photosFull);
-      setPhotos((prev) => [...prev, ...kept].slice(0, limit));
-    } catch {
-      setPhotoError(t.submit.badImage);
-    }
-  }
-
   if (state?.ok) {
     return (
       <div className="rounded-2xl border border-success/40 bg-success/10 p-8 text-center" role="status">
         <p className="text-xl font-bold">{t.submit.submitted}</p>
         <p className="mx-auto mt-2 max-w-md text-sm text-cocoa">{state.message}</p>
-        <button type="button" onClick={() => window.location.reload()} className="btn-outline mt-6">
-          {t.submit.another}
-        </button>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {/* Brokers and owners see the listing in their account (docs/host-accounts.md). */}
+          {!admin && (
+            <Link href="/account" className="btn-primary">
+              {t.account.toAccount}
+            </Link>
+          )}
+          <button type="button" onClick={() => window.location.reload()} className="btn-outline">
+            {t.submit.another}
+          </button>
+        </div>
       </div>
     );
   }
@@ -77,72 +68,13 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
       }}
       className="space-y-8"
     >
-      {!admin && (
-        <fieldset>
-          <legend className="mb-4 text-lg font-bold">{t.submit.listingQuestion}</legend>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {LISTING_TYPES.map((v) => (
-              <label
-                key={v}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-ivory p-4 transition-colors hover:border-gold has-[:checked]:border-gold has-[:checked]:bg-gold/10 has-[:checked]:ring-1 has-[:checked]:ring-gold"
-              >
-                <input type="radio" name="listingType" value={v} required checked={listingType === v} onChange={() => setListingType(v)} className="mt-1 h-4 w-4 shrink-0 accent-gold" />
-                <span>
-                  <span className="block font-semibold">{t.listing[v]}</span>
-                  <span className="block text-sm text-cocoa">{t.submit.listingOptions[v]}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {!listingType && <p className="mt-3 text-sm text-cocoa">{t.submit.chooseListing}</p>}
-        </fieldset>
-      )}
+      {!admin && <ListingTypeChoice value={listingType} onChange={setListingType} />}
 
       {(admin || listingType) && (
         <>
           <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} listingType={listingType ?? undefined} today={today} onPurposeChange={setPurpose} />
 
-          <fieldset>
-            <legend className="mb-1 text-lg font-bold">{t.submit.images}</legend>
-            <p className="mb-4 text-sm text-cocoa">{fmt(t.submit.imagesHint, { max: limit, mb: MAX_PHOTO_MB })}</p>
-            <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
-              {photos.map((src, i) => (
-                <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-line">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt={fmt(t.photoAlt, { n: i + 1 })} className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
-                    aria-label={fmt(t.submit.removePhoto, { n: i + 1 })}
-                    className="absolute end-1 top-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-espresso/80 text-xs text-white hover:bg-espresso"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              {photos.length < limit && (
-                <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-ivory text-sm font-medium text-cocoa hover:border-gold hover:text-gold-deep">
-                  <span className="text-2xl leading-none">+</span>
-                  {t.submit.add}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="sr-only"
-                    onChange={(e) => {
-                      addPhotos(e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-            {photoError && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
-                {photoError}
-              </p>
-            )}
-          </fieldset>
+          <PhotoPicker photos={photos} onChange={setPhotos} limit={limit} />
 
           {!admin && (
             // Kept mounted when Resale is picked, so switching back keeps the uploads; disabled, so a
@@ -183,5 +115,30 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
         </>
       )}
     </form>
+  );
+}
+
+/** "What are you listing?": Primary or Resale, picked by the broker or owner on /submit and when editing from /account. */
+export function ListingTypeChoice({ value, onChange }: { value: ListingType | null; onChange: (v: ListingType) => void }) {
+  const t = useDict();
+  return (
+    <fieldset>
+      <legend className="mb-4 text-lg font-bold">{t.submit.listingQuestion}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {LISTING_TYPES.map((v) => (
+          <label
+            key={v}
+            className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-ivory p-4 transition-colors hover:border-gold has-[:checked]:border-gold has-[:checked]:bg-gold/10 has-[:checked]:ring-1 has-[:checked]:ring-gold"
+          >
+            <input type="radio" name="listingType" value={v} required checked={value === v} onChange={() => onChange(v)} className="mt-1 h-4 w-4 shrink-0 accent-gold" />
+            <span>
+              <span className="block font-semibold">{t.listing[v]}</span>
+              <span className="block text-sm text-cocoa">{t.submit.listingOptions[v]}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {!value && <p className="mt-3 text-sm text-cocoa">{t.submit.chooseListing}</p>}
+    </fieldset>
   );
 }
