@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    // Property submissions carry up to 6 downscaled photos in the form body.
+    // Property submissions carry up to 8 downscaled photos in the form body (docs/photo-uploads.md).
     serverActions: { bodySizeLimit: "4mb" },
   },
   async redirects() {

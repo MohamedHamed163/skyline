@@ -218,6 +218,49 @@ describe("numeric property limits", () => {
   });
 });
 
+describe("photo count", () => {
+  const fields = {
+    title: "Nice flat",
+    listingType: "primary",
+    purpose: "sale",
+    type: "apartment",
+    location: "new-cairo",
+    price: "1000000",
+    area: "100",
+    bedrooms: "2",
+    bathrooms: "1",
+    sellerType: "owner",
+    sellerName: "Owner",
+    sellerPhone: "+20 100 000 0000",
+  };
+  const withPhotos = (n: number) => form({ ...fields, photos: Array(n).fill(JPEG) });
+  const tooMany = { ok: false, message: "Please add between 1 and 8 photos." };
+
+  beforeEach(() => {
+    photos.uploadPhotos.mockImplementation(async (list: string[]) => list.map((_, i) => `https://blob.example/properties/${i}.jpg`));
+    store.createProperty.mockResolvedValue("new-id");
+  });
+
+  it("accepts up to 8 photos on a public submission", async () => {
+    expect((await submitProperty(null, withPhotos(8)))?.ok).toBe(true);
+    expect(store.createProperty.mock.calls[0][0].photos).toHaveLength(8);
+  });
+
+  it("rejects 9 photos, or none, on a public submission", async () => {
+    expect(await submitProperty(null, withPhotos(9))).toEqual(tooMany);
+    expect(await submitProperty(null, withPhotos(0))).toEqual(tooMany);
+    expect(photos.uploadPhotos).not.toHaveBeenCalled();
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("allows the admin 8 photos but not 9", async () => {
+    await expect(createPropertyAdmin(null, withPhotos(8))).rejects.toThrow("REDIRECT /admin/properties/new-id");
+    expect(store.createProperty.mock.calls[0][0].photos).toHaveLength(8);
+    expect(await createPropertyAdmin(null, withPhotos(9))).toEqual(tooMany);
+    expect(store.createProperty).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("floor number", () => {
   const property = (floor?: string) =>
     form({ title: "Nice flat", type: "apartment", location: "new-cairo", price: "1000000", area: "100", bedrooms: "2", bathrooms: "1", sellerType: "owner", sellerName: "Owner", sellerPhone: "+20 100 000 0000", photos: JPEG, ...(floor === undefined ? {} : { floor }) });

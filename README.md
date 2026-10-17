@@ -46,7 +46,7 @@ The file ends with the statements that remove the set again.
 - [Project and developer descriptions](docs/developer-description.md): Primary listings have "About the project" and "About the developer" texts, both shown on the property page.
 - [Floor number](docs/floor.md): optional floor (0 = ground, up to 45) on the property form, shown in the property page's key facts.
 - [Forms](docs/forms.md): digits-only numeric fields with live range checks, title/description character counters, failed requests that never clear a form or crash the page, and the dropdown chevron.
-- [Photo uploads](docs/photo-uploads.md): every image field accepts photos up to 6 MB, with a friendly message naming any larger file.
+- [Photo uploads](docs/photo-uploads.md): up to 8 photos per property, each up to 6 MB, with a friendly message naming any larger file.
 - [Rental booking calendar](docs/rental-calendar.md): the admin blocks booked days on a rental's calendar; the property page shows customers which days are free.
 - [Rental prices by date](docs/rental-pricing.md): weekend-night prices (Thursday and Friday) and special prices for seasons and holidays, set on a calendar in the rental form; customers see "From …" prices and each night's price.
 - [Sorting](docs/sorting.md): the "Sort by" dropdown on `/properties` applies on change, with a loading state.

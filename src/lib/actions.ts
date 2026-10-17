@@ -11,6 +11,7 @@ import { readDocuments } from "./document-limits";
 import { verifyDocument } from "./documents";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
+import { MAX_PHOTOS } from "./photo-limits";
 import { uploadPhotos } from "./photos";
 import { readPriceRules } from "./pricing";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
@@ -35,7 +36,6 @@ import {
   type SellerType,
 } from "./types";
 
-const MAX_PHOTOS = 6;
 const MAX_PHOTO_CHARS = 900_000; // ~650 KB per photo once base64-decoded
 
 const text = (fd: FormData, key: string, max = 200) =>

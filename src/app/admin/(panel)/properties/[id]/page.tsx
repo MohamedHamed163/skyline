@@ -80,7 +80,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+      <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
         {property.photos.map((src, i) => (
           <a key={i} href={src} target="_blank" rel="noopener noreferrer">
             <Photo src={src} alt={fmt(t.photoAlt, { n: i + 1 })} className="aspect-square w-full rounded-xl bg-line" />
