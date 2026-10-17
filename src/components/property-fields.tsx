@@ -29,6 +29,7 @@ import {
 // and passes it in as listingType.
 // locations: the choices for the location field (see selectableLocations).
 // today: today in Cairo, for the rental special-price calendar (admin forms only).
+// onPurposeChange: told when the admin switches between sale and rent (the photo limit follows it).
 export function PropertyFields({
   locations,
   defaults,
@@ -36,6 +37,7 @@ export function PropertyFields({
   defaultPurpose = "sale",
   listingType,
   today,
+  onPurposeChange,
 }: {
   locations: Location[];
   defaults?: Property;
@@ -43,6 +45,7 @@ export function PropertyFields({
   defaultPurpose?: Purpose;
   listingType?: ListingType;
   today?: Day;
+  onPurposeChange?: (purpose: Purpose) => void;
 }) {
   const t = useDict();
   const f = t.fields;
@@ -69,7 +72,17 @@ export function PropertyFields({
             <label className="label" htmlFor="purpose">
               {f.purposeField}
             </label>
-            <select id="purpose" name="purpose" value={purpose} onChange={(e) => setPurpose(e.target.value as Purpose)} className="field">
+            <select
+              id="purpose"
+              name="purpose"
+              value={purpose}
+              onChange={(e) => {
+                const next = e.target.value as Purpose;
+                setPurpose(next);
+                onPurposeChange?.(next);
+              }}
+              className="field"
+            >
               {PURPOSES.map((v) => (
                 <option key={v} value={v}>
                   {t.purposeBadge[v]}

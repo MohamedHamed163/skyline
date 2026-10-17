@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { checkPhotos, encodeWithin, JPEG_STEPS, MAX_PHOTO_BYTES, MAX_PHOTOS, PHOTO_TARGET_CHARS, type JpegStep } from "./photo-limits";
+import {
+  checkPhotos,
+  encodeWithin,
+  fitBudget,
+  JPEG_STEPS,
+  MAX_PHOTO_BYTES,
+  MAX_PHOTOS,
+  MAX_RENTAL_PHOTOS,
+  maxPhotos,
+  PHOTO_BODY_BUDGET,
+  photoTargetChars,
+  type JpegStep,
+} from "./photo-limits";
 
 const file = (name: string, size: number) => ({ name, size });
 
@@ -36,13 +48,66 @@ describe("checkPhotos", () => {
   });
 });
 
-describe("photo upload budget", () => {
-  it("allows 8 photos per property", () => {
+describe("photo limits", () => {
+  it("allows 8 photos on a sale listing and 15 on a rental", () => {
+    expect(maxPhotos("sale")).toBe(MAX_PHOTOS);
+    expect(maxPhotos("rent")).toBe(MAX_RENTAL_PHOTOS);
     expect(MAX_PHOTOS).toBe(8);
+    expect(MAX_RENTAL_PHOTOS).toBe(15);
+  });
+});
+
+describe("photo upload budget", () => {
+  const ACTION_BODY_LIMIT = 4 * 1024 * 1024;
+
+  it("leaves room for the other fields under the 4 MB action body limit", () => {
+    expect(PHOTO_BODY_BUDGET + 200_000).toBeLessThanOrEqual(ACTION_BODY_LIMIT);
   });
 
-  it("keeps a full set of photos, plus room for the other fields, under the 4 MB action body limit", () => {
-    expect(MAX_PHOTOS * PHOTO_TARGET_CHARS + 200_000).toBeLessThanOrEqual(4 * 1024 * 1024);
+  it("gives each photo an equal share of an empty budget", () => {
+    expect(photoTargetChars(0, 0, MAX_PHOTOS)).toBe(450_000);
+    expect(photoTargetChars(0, 0, MAX_RENTAL_PHOTOS)).toBe(240_000);
+  });
+
+  it("shares what is left across the free slots", () => {
+    // 5 rental photos that came in small leave the other 10 a bigger share.
+    expect(photoTargetChars(5 * 100_000, 5, MAX_RENTAL_PHOTOS)).toBe(310_000);
+  });
+
+  it("never goes negative, even with no budget or no slots left", () => {
+    expect(photoTargetChars(PHOTO_BODY_BUDGET + 1, 3, MAX_RENTAL_PHOTOS)).toBe(0);
+    expect(photoTargetChars(0, MAX_PHOTOS, MAX_PHOTOS)).toBe(PHOTO_BODY_BUDGET);
+  });
+
+  it.each([MAX_PHOTOS, MAX_RENTAL_PHOTOS])("fits a full set of %i photos, picked one by one, each at its full share", (limit) => {
+    let used = 0;
+    for (let count = 0; count < limit; count++) used += photoTargetChars(used, count, limit);
+    expect(used).toBeLessThanOrEqual(PHOTO_BODY_BUDGET);
+  });
+
+  it("fits a full set picked all at once", () => {
+    expect(MAX_RENTAL_PHOTOS * photoTargetChars(0, 0, MAX_RENTAL_PHOTOS)).toBeLessThanOrEqual(PHOTO_BODY_BUDGET);
+  });
+});
+
+describe("fitBudget", () => {
+  const photo = (chars: number) => "x".repeat(chars);
+
+  it("keeps every photo that fits", () => {
+    expect(fitBudget([photo(10), photo(20)], 0)).toHaveLength(2);
+  });
+
+  it("keeps a photo that exactly fills the budget", () => {
+    expect(fitBudget([photo(100)], PHOTO_BODY_BUDGET - 100)).toHaveLength(1);
+  });
+
+  it("stops at the first photo that would overflow, keeping order", () => {
+    const [a, b, c] = [photo(100), photo(300), photo(50)];
+    expect(fitBudget([a, b, c], PHOTO_BODY_BUDGET - 350)).toEqual([a]);
+  });
+
+  it("keeps nothing once the budget is used up", () => {
+    expect(fitBudget([photo(1)], PHOTO_BODY_BUDGET)).toEqual([]);
   });
 });
 

@@ -8,14 +8,14 @@ import type { Day } from "@/lib/availability";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { toJpegDataUrl } from "@/lib/jpeg";
 import { MAX_DOCUMENT_MB } from "@/lib/document-limits";
-import { checkPhotos, MAX_PHOTO_MB, MAX_PHOTOS, PHOTO_TARGET_CHARS } from "@/lib/photo-limits";
+import { checkPhotos, fitBudget, MAX_PHOTO_MB, maxPhotos, photoTargetChars } from "@/lib/photo-limits";
 import { withFailureMessage } from "@/lib/safe-action";
 import { DOCUMENT_KINDS, LISTING_TYPES, type DocumentKind, type ListingType, type Location, type Purpose } from "@/lib/types";
 
 // mode "public": broker/owner submission (sale only, goes to review). The seller first picks
 // Primary or Resale; Primary adds the optional brochure and payment plan (docs/primary-documents.md).
 // mode "admin": Skyline adds a property (sale or rent), published straight away. `today` (Cairo)
-// drives the rental special-price calendar.
+// drives the rental special-price calendar. Rentals take more photos than sales (docs/photo-uploads.md).
 export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }: { mode: "public" | "admin"; locations: Location[]; defaultPurpose?: Purpose; today?: Day }) {
   const t = useDict();
   const admin = mode === "admin";
@@ -23,6 +23,10 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
   const [, startTransition] = useTransition();
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState("");
+  const [purpose, setPurpose] = useState<Purpose>(admin ? defaultPurpose : "sale");
+  const limit = maxPhotos(purpose);
+  // A rental switched back to a sale can hold more photos than a sale allows.
+  const extraPhotos = Math.max(0, photos.length - limit);
   const [listingType, setListingType] = useState<ListingType | null>(null);
   const [uploading, setUploading] = useState<DocumentKind[]>([]);
   const onDocumentBusy = useCallback(
@@ -35,12 +39,15 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
   async function addPhotos(files: FileList | null) {
     if (!files) return;
     setPhotoError("");
-    const { accepted: picked, tooLarge, overCount } = checkPhotos(Array.from(files), MAX_PHOTOS - photos.length);
+    const { accepted: picked, tooLarge, overCount } = checkPhotos(Array.from(files), limit - photos.length);
     if (tooLarge.length) setPhotoError(fmt(t.submit.tooLarge, { mb: MAX_PHOTO_MB, files: tooLarge.join(", ") }));
-    else if (overCount) setPhotoError(fmt(t.submit.maxPhotos, { max: MAX_PHOTOS }));
+    else if (overCount) setPhotoError(fmt(t.submit.maxPhotos, { max: limit }));
+    const used = photos.reduce((n, p) => n + p.length, 0);
     try {
-      const urls = await Promise.all(picked.map((f) => toJpegDataUrl(f, PHOTO_TARGET_CHARS)));
-      setPhotos((prev) => [...prev, ...urls].slice(0, MAX_PHOTOS));
+      const urls = await Promise.all(picked.map((f) => toJpegDataUrl(f, photoTargetChars(used, photos.length, limit))));
+      const kept = fitBudget(urls, used);
+      if (kept.length < urls.length) setPhotoError(t.submit.photosFull);
+      setPhotos((prev) => [...prev, ...kept].slice(0, limit));
     } catch {
       setPhotoError(t.submit.badImage);
     }
@@ -93,11 +100,11 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
 
       {(admin || listingType) && (
         <>
-          <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} listingType={listingType ?? undefined} today={today} />
+          <PropertyFields locations={locations} admin={admin} defaultPurpose={defaultPurpose} listingType={listingType ?? undefined} today={today} onPurposeChange={setPurpose} />
 
           <fieldset>
             <legend className="mb-1 text-lg font-bold">{t.submit.images}</legend>
-            <p className="mb-4 text-sm text-cocoa">{fmt(t.submit.imagesHint, { max: MAX_PHOTOS, mb: MAX_PHOTO_MB })}</p>
+            <p className="mb-4 text-sm text-cocoa">{fmt(t.submit.imagesHint, { max: limit, mb: MAX_PHOTO_MB })}</p>
             <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
               {photos.map((src, i) => (
                 <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-line">
@@ -113,7 +120,7 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
                   </button>
                 </div>
               ))}
-              {photos.length < MAX_PHOTOS && (
+              {photos.length < limit && (
                 <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-ivory text-sm font-medium text-cocoa hover:border-gold hover:text-gold-deep">
                   <span className="text-2xl leading-none">+</span>
                   {t.submit.add}
@@ -158,11 +165,19 @@ export function PropertyForm({ mode, locations, defaultPurpose = "sale", today }
           )}
 
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <button type="submit" disabled={pending || photos.length === 0 || waitForDocuments} className="btn-primary px-8 py-3">
+            <button type="submit" disabled={pending || photos.length === 0 || extraPhotos > 0 || waitForDocuments} className="btn-primary px-8 py-3">
               {admin ? (pending ? t.admin.publishing : t.admin.publish) : pending ? t.submit.submitting : t.submit.submit}
             </button>
             <p className="text-sm text-cocoa">
-              {photos.length === 0 ? t.submit.addPhotoFirst : waitForDocuments ? t.submit.waitForUploads : admin ? t.admin.newHint : t.submit.reviewNote}
+              {photos.length === 0
+                ? t.submit.addPhotoFirst
+                : extraPhotos
+                  ? fmt(t.submit.tooManyPhotos, { max: limit, extra: extraPhotos })
+                  : waitForDocuments
+                    ? t.submit.waitForUploads
+                    : admin
+                      ? t.admin.newHint
+                      : t.submit.reviewNote}
             </p>
           </div>
         </>

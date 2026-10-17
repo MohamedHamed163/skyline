@@ -191,6 +191,8 @@ const en = {
     add: "Add",
     removePhoto: "Remove photo {n}",
     maxPhotos: "You can add up to {max} photos.",
+    tooManyPhotos: "This listing can have up to {max} photos. Remove {extra} to continue.",
+    photosFull: "There's no room left for more photos in this upload. Remove a photo to add another.",
     badImage: "One of those files isn't an image we can read.",
     tooLarge: "Each photo must be {mb} MB or smaller. Please choose a smaller version of: {files}.",
     submitted: "Property submitted",

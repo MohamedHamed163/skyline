@@ -11,7 +11,7 @@ import { readDocuments } from "./document-limits";
 import { verifyDocument } from "./documents";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
-import { MAX_PHOTOS } from "./photo-limits";
+import { MAX_PHOTOS, maxPhotos } from "./photo-limits";
 import { uploadPhotos } from "./photos";
 import { readPriceRules } from "./pricing";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
@@ -276,8 +276,10 @@ export async function createPropertyAdmin(_prev: FormState, fd: FormData): Promi
   const parsed = await parseProperty(fd, true);
   if ("error" in parsed) return { ok: false, message: parsed.error };
   const photos = fd.getAll("photos").map(String);
-  if (photos.length < 1 || photos.length > MAX_PHOTOS) {
-    return { ok: false, message: fmt(t.photoCount, { max: MAX_PHOTOS }) };
+  // Rentals take more photos than sales (docs/photo-uploads.md).
+  const max = maxPhotos(parsed.data.purpose);
+  if (photos.length < 1 || photos.length > max) {
+    return { ok: false, message: fmt(t.photoCount, { max }) };
   }
   if (photos.some((p) => !p.startsWith("data:image/jpeg;base64,") || p.length > MAX_PHOTO_CHARS)) {
     return { ok: false, message: t.photoFailed };

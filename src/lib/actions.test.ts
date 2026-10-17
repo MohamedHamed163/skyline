@@ -233,7 +233,8 @@ describe("photo count", () => {
     sellerName: "Owner",
     sellerPhone: "+20 100 000 0000",
   };
-  const withPhotos = (n: number) => form({ ...fields, photos: Array(n).fill(JPEG) });
+  const rental = { ...fields, purpose: "rent", rentPeriod: "night", listingType: "resale" };
+  const withPhotos = (n: number, base: Record<string, string> = fields) => form({ ...base, photos: Array(n).fill(JPEG) });
   const tooMany = { ok: false, message: "Please add between 1 and 8 photos." };
 
   beforeEach(() => {
@@ -253,11 +254,30 @@ describe("photo count", () => {
     expect(store.createProperty).not.toHaveBeenCalled();
   });
 
-  it("allows the admin 8 photos but not 9", async () => {
+  it("allows the admin 8 photos but not 9 on a sale listing", async () => {
     await expect(createPropertyAdmin(null, withPhotos(8))).rejects.toThrow("REDIRECT /admin/properties/new-id");
     expect(store.createProperty.mock.calls[0][0].photos).toHaveLength(8);
     expect(await createPropertyAdmin(null, withPhotos(9))).toEqual(tooMany);
     expect(store.createProperty).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows a rental 15 photos", async () => {
+    await expect(createPropertyAdmin(null, withPhotos(15, rental))).rejects.toThrow("REDIRECT /admin/properties/new-id");
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ purpose: "rent" }));
+    expect(store.createProperty.mock.calls[0][0].photos).toHaveLength(15);
+  });
+
+  it("rejects 16 photos, or none, on a rental without uploading anything", async () => {
+    const tooManyForRental = { ok: false, message: "Please add between 1 and 15 photos." };
+    expect(await createPropertyAdmin(null, withPhotos(16, rental))).toEqual(tooManyForRental);
+    expect(await createPropertyAdmin(null, withPhotos(0, rental))).toEqual(tooManyForRental);
+    expect(photos.uploadPhotos).not.toHaveBeenCalled();
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("keeps public submissions at 8 photos even if they claim to be a rental", async () => {
+    expect(await submitProperty(null, withPhotos(9, rental))).toEqual(tooMany);
+    expect(store.createProperty).not.toHaveBeenCalled();
   });
 });
 
