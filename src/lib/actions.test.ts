@@ -15,9 +15,11 @@ const store = vi.hoisted(() => ({
   getProperty: vi.fn(),
   setBookedDates: vi.fn(),
   setPropertyStatus: vi.fn(),
+  getHost: vi.fn(),
   getHostLogin: vi.fn(),
   createHost: vi.fn(),
   setHostPassword: vi.fn(),
+  logImpersonation: vi.fn(),
   updateHostProperty: vi.fn(),
   saveHostEdit: vi.fn(),
   approveHostEdit: vi.fn(),
@@ -53,8 +55,10 @@ const {
   hostSignIn,
   hostSignOut,
   hostSignUp,
+  impersonateHost,
   rejectHostEdit,
   resetHostPassword,
+  stopImpersonating,
   setBookedDays,
   setLocationArchived,
   submitProperty,
@@ -1038,6 +1042,38 @@ describe("admin: temporary host password", () => {
     store.setHostPassword.mockRejectedValueOnce(new Error("db down"));
     vi.spyOn(console, "error").mockImplementationOnce(() => {});
     expect(await resetHostPassword("h1")).toEqual({ ok: false, message: en.admin.hostPassword.failed });
+  });
+});
+
+describe("admin: impersonate a host", () => {
+  beforeEach(() => {
+    store.getHost.mockResolvedValue(HOST);
+  });
+
+  it("enters the account with the host's session version, logs it and opens /account", async () => {
+    await expect(impersonateHost("h1")).rejects.toThrow("REDIRECT /account");
+    expect(store.logImpersonation).toHaveBeenCalledWith("h1");
+    // The host's current session version, so a later password change ends this session too.
+    expect(hostAuth.startHostSession).toHaveBeenCalledWith("h1", HOST.sessionVersion);
+  });
+
+  it("is admin-only", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(impersonateHost("h1")).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.logImpersonation).not.toHaveBeenCalled();
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+
+  it("doesn't start a session for an account that no longer exists", async () => {
+    store.getHost.mockResolvedValueOnce(undefined);
+    await expect(impersonateHost("gone")).rejects.toThrow("REDIRECT /admin");
+    expect(store.logImpersonation).not.toHaveBeenCalled();
+    expect(hostAuth.startHostSession).not.toHaveBeenCalled();
+  });
+
+  it("leaves the account by dropping the host session and returning to admin", async () => {
+    await expect(stopImpersonating()).rejects.toThrow("REDIRECT /admin");
+    expect(hostAuth.endHostSession).toHaveBeenCalled();
   });
 });
 

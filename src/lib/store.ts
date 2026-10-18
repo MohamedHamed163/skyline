@@ -412,3 +412,17 @@ export async function setHostPassword(id: string, passwordHash: string, temporar
 export async function getHostProperties(hostId: string) {
   return (await sql()`${PROPERTY_SELECT()} WHERE p.host_id = ${hostId} ORDER BY p.created_at DESC`).map(toProperty);
 }
+
+// ---- Admin impersonation audit (docs/host-impersonation.md) ----
+
+/** Records that the admin entered a host's account. Append-only; see getImpersonations. */
+export async function logImpersonation(hostId: string) {
+  await sql()`INSERT INTO impersonation_log ${sql()({ id: newId(), host_id: hostId })}`;
+}
+
+/** The most recent times the admin entered this account (newest first), for the admin to review. */
+export async function getImpersonations(hostId: string, limit = 20) {
+  const rows = await sql()`
+    SELECT created_at FROM impersonation_log WHERE host_id = ${hostId} ORDER BY created_at DESC LIMIT ${limit}`;
+  return rows.map((r) => iso(r.created_at));
+}

@@ -134,6 +134,17 @@ CREATE TABLE IF NOT EXISTS hosts (
 ALTER TABLE hosts ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFAULT 0;
 ALTER TABLE hosts ADD COLUMN IF NOT EXISTS password_temporary boolean NOT NULL DEFAULT false;
 
+-- Admin impersonation audit (docs/host-impersonation.md): one row each time the admin enters a host's
+-- account for support. The single shared admin login (ADMIN_PASSWORD) has no per-person identity, so a
+-- row records which account was entered and when, not which staff member did it. Append-only; kept
+-- even if the host is later removed is not a concern because hosts are never deleted.
+CREATE TABLE IF NOT EXISTS impersonation_log (
+  id         text PRIMARY KEY,
+  host_id    text NOT NULL REFERENCES hosts (id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS impersonation_log_host_idx ON impersonation_log (host_id, created_at DESC);
+
 -- The account that listed a property. NULL for properties the admin added and those sent before
 -- accounts existed.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS host_id text REFERENCES hosts (id);

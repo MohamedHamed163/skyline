@@ -6,6 +6,7 @@ import { BookingCalendar } from "@/components/booking-calendar";
 import { CopyCode } from "@/components/copy-button";
 import { EditPropertyForm } from "@/components/edit-property-form";
 import { HostEditReview } from "@/components/host-edit-review";
+import { HostImpersonate } from "@/components/host-impersonate";
 import { HostPasswordReset } from "@/components/host-password-reset";
 import { DocumentIcon } from "@/components/icons";
 import { Photo, PurposeBadge, placeLabel, priceText } from "@/components/property-card";
@@ -172,6 +173,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
               <span dir="auto">{property.adminNotes}</span>
             </p>
           )}
+          {host && <HostImpersonate hostId={host.id} username={host.username} />}
           {host && <HostPasswordReset hostId={host.id} username={host.username} />}
         </section>
 

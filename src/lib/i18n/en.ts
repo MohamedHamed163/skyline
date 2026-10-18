@@ -218,6 +218,10 @@ const en = {
     uploadFailed: "Couldn't upload {file}. Check your connection and try again.",
     waitForUploads: "Wait for the documents to finish uploading.",
   },
+  impersonation: {
+    banner: "You're in {username}'s account as an admin. Changes you make here are theirs.",
+    exit: "Leave account",
+  },
   account: {
     metaTitle: "My account",
     myAccount: "My account",
@@ -526,6 +530,12 @@ const en = {
       done: "Temporary password for {username}:",
       doneHint: "Give it to them now: it isn't shown again. After signing in, they'll be asked to choose their own.",
       failed: "Couldn't set a temporary password. Please try again.",
+    },
+    impersonate: {
+      hint: "Enter this account to view or fix the host's listings as them, for support. A banner shows while you're in, and every entry is logged.",
+      button: "Enter account",
+      working: "Opening…",
+      confirm: "Enter {username}'s account? You'll act as them until you leave, and this is recorded.",
     },
     editWaiting: "Edit waiting",
     hostEdit: {

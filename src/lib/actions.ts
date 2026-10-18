@@ -504,6 +504,29 @@ export async function resetHostPassword(hostId: string): Promise<TemporaryPasswo
   return { ok: true, password };
 }
 
+/**
+ * Admin support: enter a host's account to view, fix or edit their listings as them
+ * (docs/host-impersonation.md). No password is involved — the admin's own session authorizes it, and
+ * this browser is given the host's session alongside the admin cookie, so a banner shows across the
+ * site and stopImpersonating ends it. Every entry is recorded in impersonation_log. Redirects to the
+ * account, or back to the admin host view when the account no longer exists.
+ */
+export async function impersonateHost(hostId: string) {
+  await requireAdmin();
+  const host = await store.getHost(hostId);
+  if (!host) redirect("/admin");
+  await store.logImpersonation(host.id);
+  // The account's current session version, so a later password change ends this session too.
+  await startHostSession(host.id, host.sessionVersion);
+  redirect("/account");
+}
+
+/** Ends an admin impersonation: drops the host session (the admin cookie stays) and returns to admin. */
+export async function stopImpersonating() {
+  await endHostSession();
+  redirect("/admin");
+}
+
 // ---- Admin: rental booking calendar ----
 
 export type BookedDaysResult = { ok: true; days: string[] } | { ok: false; message: string };
