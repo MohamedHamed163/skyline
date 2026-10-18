@@ -46,7 +46,7 @@ export type Purpose = (typeof PURPOSES)[number];
 
 /**
  * A rental's special price for a run of nights ("YYYY-MM-DD" check-in days), both ends included
- * (docs/rental-pricing.md). `weekendPrice` is charged for the run's Thursday and Friday nights; null
+ * (docs/rental-pricing.md). `weekendPrice` is charged for the run's Thursday, Friday and Saturday nights; null
  * charges `price` every night.
  */
 export type PriceRule = { from: string; to: string; price: number; weekendPrice: number | null };
@@ -129,7 +129,7 @@ export type Property = {
   floor: number | null;
   /** Rentals: the standard price per night or month, charged unless a weekend or special price applies. */
   price: number;
-  /** Nightly rentals only: the price of Thursday and Friday nights; null charges the standard price. */
+  /** Nightly rentals only: the price of Thursday, Friday and Saturday nights; null charges the standard price. */
   weekendPrice: number | null;
   /** Rentals only: special prices for seasons and holidays, sorted and non-overlapping. Empty for sales. */
   priceRules: PriceRule[];

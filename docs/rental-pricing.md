@@ -16,7 +16,7 @@ like every other field. They aren't saved on their own the way booked days are
 
 - **Standard price per night (EGP)**: required. Charged for every night that has no weekend or
   special price.
-- **Weekend nights (EGP)** (optional), next to it: charged for **Thursday and Friday nights**. A night
+- **Weekend nights (EGP)** (optional), next to it: charged for **Thursday, Friday and Saturday nights**. A night
   is named by its check-in day, so Thursday night is the stay from Thursday to Friday. Leave it empty
   to charge the standard price at weekends too.
 - **Special prices** (optional), underneath: a two-month calendar (one month on phones) from today up
@@ -82,8 +82,8 @@ Two columns on `properties`, added in `src/lib/schema.sql`:
   `"YYYY-MM"` months for monthly ones, both ends included. Runs are sorted and never overlap.
   `weekendPrice` is null on monthly rentals. Always `[]` for sales.
 
-A night's price is resolved in this order: a special price (its weekend price on Thursday and Friday
-nights, if it has one), then the weekend price on Thursday and Friday nights, then the standard
+A night's price is resolved in this order: a special price (its weekend price on Thursday, Friday and Saturday
+nights, if it has one), then the weekend price on Thursday, Friday and Saturday nights, then the standard
 `price`. The weekend nights are `WEEKEND_NIGHTS` in `src/lib/pricing.ts`; the form labels and hints
 name them in `fields.weekendHint` and `fields.weekendPrice`, so change those too if they ever change.
 
@@ -122,7 +122,7 @@ exist. Reading is safe either way: missing columns read as no weekend or special
 
 ## Tests
 
-- `src/lib/pricing.test.ts`: Thursday and Friday weekend nights, month keys, each night's and
+- `src/lib/pricing.test.ts`: Thursday, Friday and Saturday weekend nights, month keys, each night's and
   month's price (standard, weekend, special, a special price without a weekend price, run ends),
   the "From" price and label in English and Arabic (weekend, discounts, monthly, past and
   out-of-range runs ignored, equal prices not counted as a change, lists cached before the fields),

@@ -323,7 +323,7 @@ const en = {
     price: "Price ({currency})",
     standardPrice: "Standard price per night ({currency})",
     weekendPrice: "Weekend nights ({currency})",
-    weekendHint: "Thursday and Friday nights. Leave empty to charge the standard price.",
+    weekendHint: "Thursday, Friday and Saturday nights. Leave empty to charge the standard price.",
     description: "Description",
     projectDescription: "About the project",
     projectDescriptionPlaceholder: "The project, its amenities, finishing and delivery date",

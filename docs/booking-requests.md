@@ -55,7 +55,7 @@ dates in the site's Arabic date style.
 
 ### The total price
 
-- **Nightly rentals**: the sum of each night's price, so weekend nights (Thursday and Friday) and
+- **Nightly rentals**: the sum of each night's price, so weekend nights (Thursday, Friday and Saturday) and
   special prices are included exactly as the calendar shows them. Skyline confirms the final price
   in the WhatsApp reply.
 - **Monthly rentals**: no total, in the bar or the message (`stayTotal` returns null). A stay rarely

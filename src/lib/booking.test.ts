@@ -121,9 +121,9 @@ describe("stayTotal", () => {
     expect(stayTotal(nightly(), "2026-10-18", "2026-10-21")).toBe(9000);
   });
 
-  it("charges the weekend price on Thursday and Friday nights", () => {
-    // Wed 14 – Sun 18 October: Wed 3,000 + Thu 4,500 + Fri 4,500 + Sat 3,000.
-    expect(stayTotal(nightly({ weekendPrice: 4500 }), "2026-10-14", "2026-10-18")).toBe(15_000);
+  it("charges the weekend price on Thursday, Friday and Saturday nights", () => {
+    // Wed 14 – Sun 18 October: Wed 3,000 + Thu 4,500 + Fri 4,500 + Sat 4,500.
+    expect(stayTotal(nightly({ weekendPrice: 4500 }), "2026-10-14", "2026-10-18")).toBe(16_500);
   });
 
   it("charges special prices on the nights they cover", () => {
@@ -146,7 +146,7 @@ describe("bookingMessage and bookingHref", () => {
         "Check-in: Wed, 14 Oct 2026",
         "Check-out: Sun, 18 Oct 2026",
         "Total nights: 4",
-        "Total price: 15,000 EGP",
+        "Total price: 16,500 EGP",
         "Is it available on these dates?",
       ].join("\n"),
     );

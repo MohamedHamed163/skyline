@@ -321,7 +321,7 @@ const ar: Dict = {
     price: "السعر ({currency})",
     standardPrice: "السعر العادي لكل ليلة ({currency})",
     weekendPrice: "ليالي نهاية الأسبوع ({currency})",
-    weekendHint: "ليلتا الخميس والجمعة. اتركه فارغًا لتطبيق السعر العادي.",
+    weekendHint: "ليالي الخميس والجمعة والسبت. اتركه فارغًا لتطبيق السعر العادي.",
     description: "الوصف",
     projectDescription: "عن المشروع",
     projectDescriptionPlaceholder: "المشروع ومرافقه ومستوى التشطيب وموعد التسليم",

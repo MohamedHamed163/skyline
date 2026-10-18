@@ -33,11 +33,13 @@ describe("SpecialPrices on the rental form", () => {
       }),
     );
 
-  it("shows each night's price: standard on weekdays, weekend on Thursday and Friday, special inside a run", () => {
+  it("shows each night's price: standard on weekdays, weekend on Thursday, Friday and Saturday, special inside a run", () => {
     const html = nightly({ rules: [november] });
     expect(html).toContain('aria-label="Wed, 14 Oct 2026: 3,000 EGP"');
     expect(html).toContain('aria-label="Thu, 15 Oct 2026: 4,500 EGP"');
     expect(html).toContain('aria-label="Fri, 16 Oct 2026: 4,500 EGP"');
+    expect(html).toContain('aria-label="Sat, 17 Oct 2026: 4,500 EGP"');
+    expect(html).toContain('aria-label="Sun, 18 Oct 2026: 3,000 EGP"');
     expect(html).toContain('aria-label="Mon, 2 Nov 2026: 2,000 EGP"');
   });
 

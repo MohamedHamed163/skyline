@@ -35,12 +35,12 @@ const cached = (p: Property): Partial<Property> & Pick<Property, "price" | "purp
 };
 
 describe("weekend nights", () => {
-  it("counts Thursday and Friday nights as the weekend", () => {
-    expect(["2026-10-15", "2026-10-16", "2027-04-01", "2027-04-02"].map(isWeekendNight)).toEqual([true, true, true, true]);
+  it("counts Thursday, Friday and Saturday nights as the weekend", () => {
+    expect(["2026-10-15", "2026-10-16", "2026-10-17", "2027-04-01", "2027-04-02", "2027-04-03"].map(isWeekendNight)).toEqual([true, true, true, true, true, true]);
   });
 
-  it("charges every other night as a weekday, Saturday included", () => {
-    for (const night of ["2026-10-13", "2026-10-14", "2026-10-17", "2026-10-18", "2026-10-19"]) expect(isWeekendNight(night)).toBe(false);
+  it("charges every other night as a weekday, Sunday included", () => {
+    for (const night of ["2026-10-13", "2026-10-14", "2026-10-18", "2026-10-19"]) expect(isWeekendNight(night)).toBe(false);
   });
 
 });
@@ -48,11 +48,12 @@ describe("weekend nights", () => {
 describe("nightQuote", () => {
   const rental = nightly({ weekendPrice: 4500, priceRules: [rule("2027-04-08", "2027-04-10", 12_000), summer] });
 
-  it("charges the standard price on weekdays and the weekend price on Thursday and Friday nights", () => {
+  it("charges the standard price on weekdays and the weekend price on Thursday, Friday and Saturday nights", () => {
     expect(nightQuote(rental, "2026-10-14")).toEqual({ price: 3000, kind: "standard" });
     expect(nightQuote(rental, "2026-10-15")).toEqual({ price: 4500, kind: "weekend" });
     expect(nightQuote(rental, "2026-10-16")).toEqual({ price: 4500, kind: "weekend" });
-    expect(nightQuote(rental, "2026-10-17")).toEqual({ price: 3000, kind: "standard" });
+    expect(nightQuote(rental, "2026-10-17")).toEqual({ price: 4500, kind: "weekend" });
+    expect(nightQuote(rental, "2026-10-18")).toEqual({ price: 3000, kind: "standard" });
   });
 
   it("charges the standard price on weekends too when there is no weekend price", () => {
@@ -70,7 +71,8 @@ describe("nightQuote", () => {
   });
 
   it("includes both ends of a run, and nothing after it", () => {
-    expect(nightQuote(rental, "2027-07-31").price).toBe(8000);
+    // Saturday 31 July 2027: the last night of the run, at its weekend price.
+    expect(nightQuote(rental, "2027-07-31").price).toBe(10_000);
     expect(nightQuote(rental, "2027-08-01")).toEqual({ price: 3000, kind: "standard" });
   });
 

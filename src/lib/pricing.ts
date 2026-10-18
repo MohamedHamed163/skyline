@@ -10,8 +10,8 @@ import { fmt } from "./i18n/shared";
 import type { PriceRule, Property } from "./types";
 import { PROPERTY_LIMITS } from "./validation";
 
-/** Weekend nights, by check-in weekday (0 = Sunday): Thursday and Friday, Egypt's holiday-home weekend. */
-export const WEEKEND_NIGHTS: readonly number[] = [4, 5];
+/** Weekend nights, by check-in weekday (0 = Sunday): Thursday, Friday and Saturday, Egypt's holiday-home weekend. */
+export const WEEKEND_NIGHTS: readonly number[] = [4, 5, 6];
 
 export const isWeekendNight = (night: Day) => WEEKEND_NIGHTS.includes(new Date(`${night}T00:00:00Z`).getUTCDay());
 
