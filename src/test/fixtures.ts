@@ -28,7 +28,6 @@ export const makeProperty = (o: Partial<Property> = {}): Property => ({
   listingType: "resale",
   featured: false,
   purpose: "sale",
-  rentPeriod: null,
   type: "apartment",
   location: "new-cairo",
   locationName: { en: "New Cairo", ar: "القاهرة الجديدة" },

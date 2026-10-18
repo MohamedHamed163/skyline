@@ -13,7 +13,7 @@ import { AvailabilityCalendar, BookingSummary } from "./availability-calendar";
 
 // Tuesday 13 October 2026.
 const TODAY = "2026-10-13";
-const rental = bookingRental(makeProperty({ code: "VILLA12", title: "Sea view villa", purpose: "rent", rentPeriod: "night", price: 3000 }));
+const rental = bookingRental(makeProperty({ code: "VILLA12", title: "Sea view villa", purpose: "rent", price: 3000 }));
 
 const render = (el: ReactElement, dict: Dict = en) => renderToStaticMarkup(h(DictProvider, { dict, children: el }));
 const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
@@ -65,12 +65,11 @@ describe("BookingSummary", () => {
     expect(html).toContain('target="_blank" rel="noopener noreferrer"');
   });
 
-  it("shows no total on a monthly rental", () => {
-    const html = unescape(render(h(BookingSummary, { rental: { ...rental, rentPeriod: "month" }, stay: { checkIn: "2026-10-20", checkOut: "2026-11-19" }, onClear: () => {} })));
+  it("totals a month-long stay night by night", () => {
+    const html = summary({ checkIn: "2026-10-20", checkOut: "2026-11-19" });
     expect(html).toContain(">30</dd>");
-    expect(html).not.toContain(`>${en.booking.total}<`);
-    expect(html).not.toContain("EGP");
-    expect(new URL(html.match(/href="(https:\/\/wa\.me\/[^"]*)"/)![1]).searchParams.get("text")).not.toContain("Total price");
+    expect(html).toContain(">90,000 EGP</dd>");
+    expect(new URL(html.match(/href="(https:\/\/wa\.me\/[^"]*)"/)![1]).searchParams.get("text")).toContain("Total price: 90,000 EGP");
   });
 
   it("is translated on the Arabic site", () => {

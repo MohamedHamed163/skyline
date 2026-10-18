@@ -30,7 +30,7 @@ describe("descriptionSections", () => {
   it("shows a single Overview on Resale listings and rentals, never a developer text", () => {
     const stray = { description: "A flat.", developerDescription: "Should not show." };
     expect(descriptionSections(makeProperty({ listingType: "resale", ...stray }))).toEqual([{ kind: "overview", text: "A flat." }]);
-    expect(descriptionSections(makeProperty({ listingType: "primary", purpose: "rent", rentPeriod: "month", ...stray }))).toEqual([{ kind: "overview", text: "A flat." }]);
+    expect(descriptionSections(makeProperty({ listingType: "primary", purpose: "rent", ...stray }))).toEqual([{ kind: "overview", text: "A flat." }]);
     expect(descriptionSections(makeProperty({ description: "" }))).toEqual([]);
   });
 

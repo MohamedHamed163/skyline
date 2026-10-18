@@ -13,7 +13,7 @@ import { requestChanges } from "@/lib/actions";
 import { cairoToday } from "@/lib/availability";
 import { floorText, formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { sellerName, sellerWithType } from "@/lib/sellers";
+import { sellerName, sellerWhatsapp, sellerWithType } from "@/lib/sellers";
 import { selectableLocations } from "@/lib/locations";
 import { getHost, getLeads, getLocations, getProperty } from "@/lib/store";
 
@@ -145,7 +145,7 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
             <a href={telHref(seller.phone)} className="btn-primary btn-sm">
               📞 {t.call}
             </a>
-            <a href={whatsappHref(seller.whatsapp || seller.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-sm bg-success text-deep hover:bg-success-dark">
+            <a href={whatsappHref(sellerWhatsapp(property))} target="_blank" rel="noopener noreferrer" className="btn btn-sm bg-success text-deep hover:bg-success-dark">
               {t.whatsapp}
             </a>
           </div>

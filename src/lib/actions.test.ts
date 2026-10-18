@@ -266,7 +266,7 @@ describe("photo count", () => {
     sellerName: "Owner",
     sellerPhone: "+20 100 000 0000",
   };
-  const rental = { ...fields, purpose: "rent", rentPeriod: "night", listingType: "resale", code: "SKY-RNT-0101" };
+  const rental = { ...fields, purpose: "rent", listingType: "resale", code: "RNT-0101" };
   const withPhotos = (n: number, base: Record<string, string> = fields) => form({ ...base, photos: Array(n).fill(JPEG) });
   const tooMany = { ok: false, message: "Please add between 1 and 8 photos." };
 
@@ -433,7 +433,7 @@ describe("developer description (Primary only)", () => {
 
   it("clears it when the admin switches the listing to Resale or Rent", async () => {
     await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "resale", developerDescription }));
-    await updateProperty("p1", null, form({ ...fields, purpose: "rent", rentPeriod: "month", listingType: "primary", developerDescription }));
+    await updateProperty("p1", null, form({ ...fields, purpose: "rent", listingType: "primary", developerDescription }));
     expect(store.updateProperty).toHaveBeenNthCalledWith(1, "p1", expect.objectContaining({ developerDescription: "" }));
     expect(store.updateProperty).toHaveBeenNthCalledWith(2, "p1", expect.objectContaining({ developerDescription: "" }));
   });
@@ -479,6 +479,40 @@ describe("listing type and home page (admin-only)", () => {
   it("rejects an unknown listing type from the admin", async () => {
     expect(await updateProperty("p1", null, form({ ...fields, purpose: "sale", listingType: "gold" }))).toEqual({ ok: false, message: en.msg.propertyChoices });
     expect(store.updateProperty).not.toHaveBeenCalled();
+  });
+});
+
+describe("rentals skip Pending Approvals (admin edit)", () => {
+  const fields = {
+    title: "Nice flat",
+    type: "apartment",
+    location: "new-cairo",
+    price: "1000000",
+    area: "100",
+    bedrooms: "2",
+    bathrooms: "1",
+    sellerType: "owner",
+    sellerName: "Owner",
+    sellerPhone: "+20 100 000 0000",
+    listingType: "resale",
+  };
+
+  it("publishes a pending submission the admin switches to Rent", async () => {
+    store.getProperty.mockResolvedValueOnce(makeProperty({ status: "pending", code: null }));
+    expect((await updateProperty("p1", null, form({ ...fields, purpose: "rent" })))?.ok).toBe(true);
+    expect(store.setPropertyStatus).toHaveBeenCalledWith("p1", "published");
+  });
+
+  it("leaves a pending sale waiting for review", async () => {
+    store.getProperty.mockResolvedValueOnce(makeProperty({ status: "pending", code: null }));
+    await updateProperty("p1", null, form({ ...fields, purpose: "sale" }));
+    expect(store.setPropertyStatus).not.toHaveBeenCalled();
+  });
+
+  it("doesn't change the status of a rental that isn't pending", async () => {
+    store.getProperty.mockResolvedValueOnce(makeProperty({ purpose: "rent", status: "archived" }));
+    await updateProperty("p1", null, form({ ...fields, purpose: "rent" }));
+    expect(store.setPropertyStatus).not.toHaveBeenCalled();
   });
 });
 
@@ -565,7 +599,7 @@ describe("seller's primary/resale choice and primary documents", () => {
 });
 
 describe("setBookedDays (rental booking calendar)", () => {
-  const rental = (bookedDates: string[] = []) => makeProperty({ purpose: "rent", rentPeriod: "night", code: "SKY-RNT-0001", bookedDates });
+  const rental = (bookedDates: string[] = []) => makeProperty({ purpose: "rent", code: "SKY-RNT-0001", bookedDates });
 
   beforeEach(() => {
     // 13 October 2026, midday in Cairo.
@@ -623,9 +657,8 @@ describe("setBookedDays (rental booking calendar)", () => {
 describe("rental prices that change by date", () => {
   const rental = {
     purpose: "rent",
-    rentPeriod: "night",
     listingType: "resale",
-    code: "SKY-RNT-0101",
+    code: "RNT-0101",
     title: "Sea-view chalet",
     type: "chalet",
     location: "new-cairo",
@@ -677,11 +710,11 @@ describe("rental prices that change by date", () => {
     expect(store.updateProperty).not.toHaveBeenCalled();
   });
 
-  it("keeps special months but no weekend price on a monthly rental", async () => {
-    const months = [{ from: "2027-06", to: "2027-07", price: 40_000, weekendPrice: null }];
-    const result = await updateProperty("p1", null, form({ ...rental, rentPeriod: "month", price: "25000", weekendPrice: "abc", priceRules: JSON.stringify(months) }));
+  it("prices every rental per night, even when a form opened before the change still says monthly", async () => {
+    const result = await updateProperty("p1", null, form({ ...rental, rentPeriod: "month", weekendPrice: "4500", priceRules: JSON.stringify([summer]) }));
     expect(result?.ok).toBe(true);
-    expect(saved()).toEqual(expect.objectContaining({ rentPeriod: "month", weekendPrice: null, priceRules: months }));
+    expect(saved()).toEqual(expect.objectContaining({ weekendPrice: 4500, priceRules: [summer] }));
+    expect(saved()).not.toHaveProperty("rentPeriod");
   });
 
   it("never keeps rental prices on sale listings", async () => {
@@ -699,7 +732,8 @@ describe("rental prices that change by date", () => {
     const bad = [
       { ...rental, priceRules: "not json" },
       { ...rental, priceRules: JSON.stringify([{ ...summer, price: 0 }]) },
-      { ...rental, rentPeriod: "month", priceRules: JSON.stringify([summer]) },
+      // Special prices for whole months, as monthly rentals used to have.
+      { ...rental, priceRules: JSON.stringify([{ from: "2027-06", to: "2027-07", price: 40_000, weekendPrice: null }]) },
     ];
     for (const fields of bad) expect(await updateProperty("p1", null, form(fields))).toEqual({ ok: false, message: en.msg.priceRulesFailed });
     expect(store.updateProperty).not.toHaveBeenCalled();
@@ -715,7 +749,6 @@ describe("rental prices that change by date", () => {
 describe("rental codes typed by the admin", () => {
   const rental = {
     purpose: "rent",
-    rentPeriod: "night",
     listingType: "resale",
     title: "Sea-view chalet",
     type: "chalet",
@@ -728,7 +761,7 @@ describe("rental codes typed by the admin", () => {
     photos: JPEG,
   };
   const sale = { ...rental, purpose: "sale", listingType: "resale", sellerType: "owner", sellerName: "Owner", sellerPhone: "+20 100 000 0000" };
-  const invalid = { ok: false, message: "Enter a rental code of up to 30 English letters, numbers and dashes, e.g. SKY-RNT-0101." };
+  const invalid = { ok: false, message: "Enter a rental code of up to 10 letters (English or Arabic), numbers and dashes, with no spaces or symbols, e.g. A101 or شاليه-٥." };
   const conflict = Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505", constraint_name: "properties_code_key" });
 
   beforeEach(() => {
@@ -738,17 +771,18 @@ describe("rental codes typed by the admin", () => {
   });
 
   it("publishes a new rental with the code the admin typed, trimmed and in capitals", async () => {
-    await expect(createPropertyAdmin(null, form({ ...rental, code: "  sky-rnt-0101 " }))).rejects.toThrow("REDIRECT /admin/properties/new-id");
-    expect(store.codeTaken).toHaveBeenCalledWith("SKY-RNT-0101");
-    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ purpose: "rent", code: "SKY-RNT-0101" }));
+    await expect(createPropertyAdmin(null, form({ ...rental, code: "  rnt-0101 " }))).rejects.toThrow("REDIRECT /admin/properties/new-id");
+    expect(store.codeTaken).toHaveBeenCalledWith("RNT-0101");
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ purpose: "rent", code: "RNT-0101" }));
     expect(store.setPropertyStatus).toHaveBeenCalledWith("new-id", "published");
   });
 
-  it("accepts any format of letters, digits and dashes", async () => {
-    for (const code of ["VILLA12", "NC-A-3", "7"]) {
+  it("accepts any format of English or Arabic letters, digits and dashes, up to 10 characters", async () => {
+    const codes = ["VILLA12", "NC-A-3", "7", "شاليه-٥", "فيلا12", "٠١٢٣", "A".repeat(10), "ش".repeat(10)];
+    for (const code of codes) {
       await expect(createPropertyAdmin(null, form({ ...rental, code }))).rejects.toThrow("REDIRECT");
     }
-    expect(store.createProperty.mock.calls.map(([input]) => input.code)).toEqual(["VILLA12", "NC-A-3", "7"]);
+    expect(store.createProperty.mock.calls.map(([input]) => input.code)).toEqual(codes);
   });
 
   it("requires a code on a rental", async () => {
@@ -758,7 +792,7 @@ describe("rental codes typed by the admin", () => {
   });
 
   it("rejects codes that can't go in a web address, or are too long, before uploading photos", async () => {
-    for (const code of ["SKY RNT 1", "SKY/RNT/1", "-SKY", "SKY--1", "SKY-", "كود-1", "٠١٢", "A".repeat(31)]) {
+    for (const code of ["SKY RNT 1", "SKY/RNT/1", "-SKY", "SKY--1", "SKY-", "كود 1", "كود/1", "SKY-RNT-0101", "A".repeat(11), "ش".repeat(11)]) {
       expect(await createPropertyAdmin(null, form({ ...rental, code }))).toEqual(invalid);
     }
     expect(photos.uploadPhotos).not.toHaveBeenCalled();
@@ -767,9 +801,9 @@ describe("rental codes typed by the admin", () => {
 
   it("rejects a code another property already uses", async () => {
     store.codeTaken.mockResolvedValue(true);
-    expect(await createPropertyAdmin(null, form({ ...rental, code: "sky-rnt-0001" }))).toEqual({
+    expect(await createPropertyAdmin(null, form({ ...rental, code: "rnt-0001" }))).toEqual({
       ok: false,
-      message: "The code SKY-RNT-0001 is already used by another property. Please choose a different code.",
+      message: "The code RNT-0001 is already used by another property. Please choose a different code.",
     });
     expect(photos.uploadPhotos).not.toHaveBeenCalled();
     expect(store.createProperty).not.toHaveBeenCalled();
@@ -777,9 +811,9 @@ describe("rental codes typed by the admin", () => {
 
   it("reports a code taken while the rental was being saved", async () => {
     store.createProperty.mockRejectedValueOnce(conflict);
-    expect(await createPropertyAdmin(null, form({ ...rental, code: "SKY-RNT-0101" }))).toEqual({
+    expect(await createPropertyAdmin(null, form({ ...rental, code: "شاليه-٥" }))).toEqual({
       ok: false,
-      message: "The code SKY-RNT-0101 is already used by another property. Please choose a different code.",
+      message: "The code شاليه-٥ is already used by another property. Please choose a different code.",
     });
     expect(store.setPropertyStatus).not.toHaveBeenCalled();
   });
@@ -787,7 +821,7 @@ describe("rental codes typed by the admin", () => {
   it("still reports other storage failures as a failed save", async () => {
     store.createProperty.mockRejectedValueOnce(new Error("db down"));
     vi.spyOn(console, "error").mockImplementationOnce(() => {});
-    expect(await createPropertyAdmin(null, form({ ...rental, code: "SKY-RNT-0101" }))).toEqual({ ok: false, message: en.msg.saveFailed });
+    expect(await createPropertyAdmin(null, form({ ...rental, code: "RNT-0101" }))).toEqual({ ok: false, message: en.msg.saveFailed });
   });
 
   it("ignores a code on a sale listing, which gets one on publishing", async () => {

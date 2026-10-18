@@ -1,6 +1,6 @@
 import { cairoToday, type Day } from "./availability";
 import { listPrice } from "./pricing";
-import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS, toListingType, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose, type RentPeriod } from "./types";
+import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, toListingType, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose } from "./types";
 
 // Public search: parses URL params, filters/sorts published properties, paginates,
 // and derives the market and project summaries shown on the site.
@@ -20,7 +20,6 @@ export type SearchQuery = {
   q: string;
   /** "sale" (default) or "rent" — the two sides of the site. */
   purpose: Purpose;
-  period?: RentPeriod;
   listing?: ListingType;
   types: PropertyType[];
   /** Location ids. Unknown ids simply match nothing. */
@@ -50,7 +49,6 @@ export function parseSearch(params: Params): SearchQuery {
   return {
     q: one(params.q).trim().slice(0, 80),
     purpose: rent ? "rent" : "sale",
-    period: rent ? RENT_PERIODS.find((v) => v === one(params.period)) : undefined,
     listing: rent ? undefined : (toListingType(tab) ?? toListingType(one(params.listing))),
     types: PROPERTY_TYPES.filter((v) => list(params.type).includes(v)),
     locations: [...new Set(list(params.location).filter((v) => LOCATION_ID.test(v)))].slice(0, 20),
@@ -74,7 +72,7 @@ export function searchTab(q: Partial<Pick<SearchQuery, "purpose" | "listing">>):
 
 export function isFiltered(s: SearchQuery) {
   return Boolean(
-    s.q || s.listing || s.period || s.types.length || s.locations.length || s.compound || s.beds || s.baths ||
+    s.q || s.listing || s.types.length || s.locations.length || s.compound || s.beds || s.baths ||
       s.minPrice || s.maxPrice || s.minArea || s.maxArea || s.features.length,
   );
 }
@@ -84,7 +82,6 @@ export function searchHref(s: SearchQuery, overrides: Partial<SearchQuery> = {})
   const m = { ...s, page: 1, ...overrides };
   const p = new URLSearchParams();
   if (m.purpose === "rent") p.set("purpose", "rent");
-  if (m.purpose === "rent" && m.period) p.set("period", m.period);
   if (m.q) p.set("q", m.q);
   if (m.listing) p.set("listing", m.listing);
   m.types.forEach((v) => p.append("type", v));
@@ -120,7 +117,6 @@ export function applySearch(properties: Property[], s: SearchQuery, today: Day =
     (p) =>
       (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description, p.developerDescription].join(" ").toLowerCase().includes(q)) &&
       p.purpose === s.purpose &&
-      (!s.period || p.rentPeriod === s.period) &&
       (!s.listing || p.listingType === s.listing) &&
       (!s.types.length || s.types.includes(p.type)) &&
       (!s.locations.length || s.locations.includes(p.location)) &&

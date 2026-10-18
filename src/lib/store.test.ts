@@ -84,14 +84,15 @@ describe("weekend and special prices", () => {
   });
 
   it("writes both for a nightly rental", async () => {
-    await store.createProperty(makeProperty({ purpose: "rent", rentPeriod: "night", weekendPrice: 4500, priceRules: [summer] }));
+    await store.createProperty(makeProperty({ purpose: "rent", weekendPrice: 4500, priceRules: [summer] }));
     expect(written()).toEqual(expect.objectContaining({ weekend_price: 4500, price_rules: { json: [summer] } }));
   });
 
-  it("keeps no weekend price on a monthly rental", async () => {
-    const months = [{ from: "2027-06", to: "2027-07", price: 40_000, weekendPrice: null }];
-    await store.updateProperty("p1", { ...makeProperty({ purpose: "rent", rentPeriod: "month", weekendPrice: 4500, priceRules: months }), adminNotes: "" });
-    expect(written()).toEqual(expect.objectContaining({ weekend_price: null, price_rules: { json: months } }));
+  it("writes every rental as priced per night, and sale listings with no rent period", async () => {
+    await store.createProperty(makeProperty({ purpose: "rent" }));
+    expect(written()).toEqual(expect.objectContaining({ rent_period: "night" }));
+    await store.createProperty(makeProperty({ purpose: "sale" }));
+    expect(written()).toEqual(expect.objectContaining({ rent_period: null }));
   });
 
   it("clears both on a sale listing", async () => {
@@ -106,7 +107,7 @@ describe("property codes", () => {
   const conflict = Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505", constraint_name: "properties_code_key" });
 
   it("saves the code the admin typed for a new rental", async () => {
-    await store.createProperty({ ...makeProperty({ purpose: "rent", rentPeriod: "night" }), code: "VILLA-12" });
+    await store.createProperty({ ...makeProperty({ purpose: "rent" }), code: "VILLA-12" });
     expect(written()).toEqual(expect.objectContaining({ code: "VILLA-12" }));
   });
 

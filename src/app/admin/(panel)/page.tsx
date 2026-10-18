@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EmptyState, LeadStatusBadge, StatusBadge } from "@/components/admin-ui";
 import { priceText } from "@/components/property-card";
 import { listingSection } from "@/lib/admin-lists";
+import { awaitsApproval } from "@/lib/approvals";
 import { formatDate, isToday } from "@/lib/format";
 import { getDict } from "@/lib/i18n";
 import { sellerWithType } from "@/lib/sellers";
@@ -15,7 +16,7 @@ export default async function AdminDashboardPage() {
   const stats = [
     { label: a.stats.total, value: properties.length, href: "/admin/properties" },
     { label: a.stats.published, value: count((p) => p.status === "published"), href: "/admin/properties?status=published" },
-    { label: a.stats.pending, value: count((p) => p.status === "pending"), href: "/admin/properties?status=pending" },
+    { label: a.stats.pending, value: count(awaitsApproval), href: "/admin/properties?status=pending" },
     { label: a.stats.primary, value: count((p) => listingSection(p) === "primary"), href: "/admin/properties?listing=primary" },
     { label: a.stats.resale, value: count((p) => listingSection(p) === "resale"), href: "/admin/properties?listing=resale" },
     { label: a.stats.leadsToday, value: leads.filter((l) => isToday(l.createdAt)).length, href: "/admin/leads" },

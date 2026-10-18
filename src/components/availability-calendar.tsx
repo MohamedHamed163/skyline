@@ -6,7 +6,7 @@ import { addMonths, MONTHS_AHEAD, monthGrid, monthOf, weekdayColumns, weekStartF
 import { bookingHref, canPick, pickDay, stayNights, stayTotal, type Rental, type Stay } from "@/lib/booking";
 import { formatCalendarDay, formatMonth, formatPrice, weekdayLabel } from "@/lib/format";
 import { fmt, useDict } from "@/lib/i18n/client";
-import { monthQuote, nightQuote, pricesVary } from "@/lib/pricing";
+import { nightQuote, pricesVary } from "@/lib/pricing";
 import { groupDigits } from "@/lib/validation";
 
 // Month calendars for rentals (docs/rental-calendar.md): the customers' one on the property page,
@@ -93,9 +93,9 @@ const TODAY_RING = "ring-1 ring-inset ring-gold-dark";
 
 /**
  * Availability for customers on a rental's property page. Booked days are crossed out. When the
- * price changes by date (docs/rental-pricing.md), each free night shows its price, or each month its
- * price under the month name on monthly rentals. Customers click a check-in and a check-out day to
- * see the nights and total and ask Skyline about them on WhatsApp (docs/booking-requests.md).
+ * price changes by date (docs/rental-pricing.md), each free night shows its price. Customers click a
+ * check-in and a check-out day to see the nights and total and ask Skyline about them on WhatsApp
+ * (docs/booking-requests.md).
  */
 export function AvailabilityCalendar({ booked, today, rental }: { booked: string[]; today: Day; rental: Rental }) {
   const t = useDict();
@@ -103,8 +103,7 @@ export function AvailabilityCalendar({ booked, today, rental }: { booked: string
   const bookedSet = useMemo(() => new Set(booked), [booked]);
   const [stay, setStay] = useState<Stay | null>(null);
   const [hover, setHover] = useState<Day | null>(null);
-  const vary = pricesVary(rental, today);
-  const nightPrices = vary && rental.rentPeriod === "night";
+  const nightPrices = pricesVary(rental, today);
   const cell = nightPrices ? "h-12 flex-col leading-tight" : "h-10";
 
   // The stay's days, check-out included. While check-out is being picked, the hovered day previews it.
@@ -124,18 +123,6 @@ export function AvailabilityCalendar({ booked, today, rental }: { booked: string
     >
       <CalendarMonths
         today={today}
-        title={
-          vary && rental.rentPeriod === "month"
-            ? (m, name) => (
-                <>
-                  {name}
-                  <span className="text-xs font-semibold text-gold-deep">
-                    {formatPrice(monthQuote(rental, m).price, t.currency)} {fmt(t.per, { period: t.rentPeriod.month })}
-                  </span>
-                </>
-              )
-            : undefined
-        }
         day={(d) => {
           // Past days can't be booked whatever the calendar says, so they're simply dimmed.
           if (d < today) {
@@ -189,23 +176,19 @@ export function AvailabilityCalendar({ booked, today, rental }: { booked: string
 }
 
 /**
- * The bar under the property page's calendar: the stay picked so far, its nights and (except on
- * monthly rentals) its total, and the button that opens WhatsApp with the booking message
- * (docs/booking-requests.md).
+ * The bar under the property page's calendar: the stay picked so far, its nights and total, and the
+ * button that opens WhatsApp with the booking message (docs/booking-requests.md).
  */
 export function BookingSummary({ rental, stay, onClear }: { rental: Rental; stay: Stay | null; onClear: () => void }) {
   const t = useDict();
   const b = t.booking;
   const complete = stay?.checkOut ? { checkIn: stay.checkIn, checkOut: stay.checkOut } : null;
-  // Monthly rentals show no total (docs/booking-requests.md).
-  const showTotal = rental.rentPeriod !== "month";
-  const total = complete && stayTotal(rental, complete.checkIn, complete.checkOut);
   const value = (text: string | null) => (text ? <dd className="font-semibold text-espresso">{text}</dd> : <dd className="text-cocoa/70">{b.pickDay}</dd>);
   const whatsappClass = "btn btn-sm bg-success text-deep hover:bg-success-dark";
 
   return (
     <div className="space-y-3 rounded-xl bg-ivory p-4">
-      <dl className={`grid grid-cols-2 gap-x-4 gap-y-3 text-sm ${showTotal ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-xs text-cocoa">{b.checkIn}</dt>
           {value(stay && formatCalendarDay(stay.checkIn, t.locale))}
@@ -218,12 +201,10 @@ export function BookingSummary({ rental, stay, onClear }: { rental: Rental; stay
           <dt className="text-xs text-cocoa">{b.nights}</dt>
           {complete ? <dd className="font-semibold text-espresso">{stayNights(complete.checkIn, complete.checkOut).length}</dd> : <dd className="text-cocoa/70">–</dd>}
         </div>
-        {showTotal && (
-          <div>
-            <dt className="text-xs text-cocoa">{b.total}</dt>
-            {total !== null ? <dd className="font-bold text-espresso">{formatPrice(total, t.currency)}</dd> : <dd className="text-cocoa/70">–</dd>}
-          </div>
-        )}
+        <div>
+          <dt className="text-xs text-cocoa">{b.total}</dt>
+          {complete ? <dd className="font-bold text-espresso">{formatPrice(stayTotal(rental, complete.checkIn, complete.checkOut), t.currency)}</dd> : <dd className="text-cocoa/70">–</dd>}
+        </div>
       </dl>
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
         <p className="text-xs text-cocoa" role="status">

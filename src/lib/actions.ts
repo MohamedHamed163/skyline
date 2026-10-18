@@ -4,9 +4,11 @@ import { revalidatePath, updateTag } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { checkPassword, endSession, isAdmin, startSession } from "./auth";
+import { publishesOnSave } from "./approvals";
 import { applyRange, cairoToday, isDay } from "./availability";
 import { CACHE_TAGS } from "./cache-tags";
 import { hasDeveloperDescription } from "./descriptions";
+import { leadPatch } from "./leads";
 import { readDocuments } from "./document-limits";
 import { verifyDocument } from "./documents";
 import {
@@ -37,19 +39,15 @@ import * as store from "./store";
 import { checkWholeNumber, groupDigits, PROPERTY_LIMITS, TEXT_LIMITS, validEmail, validPhone } from "./validation";
 import {
   FEATURES,
-  LEAD_STATUSES,
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
   PURPOSES,
-  RENT_PERIODS,
   SELLER_TYPES,
   toListingType,
   type FormState,
-  type LeadStatus,
   type PropertyStatus,
   type PropertyType,
   type Purpose,
-  type RentPeriod,
   type SellerType,
 } from "./types";
 
@@ -64,7 +62,6 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
   const dict = await getDict();
   const t = dict.msg;
   const purpose = (admin ? (text(fd, "purpose") as Purpose) : "sale") satisfies Purpose;
-  const rentPeriod = text(fd, "rentPeriod") as RentPeriod;
   const title = text(fd, "title", TEXT_LIMITS.title);
   // A public form opened before sellers could choose sends no listing type: it arrives as resale.
   const listingType = toListingType(text(fd, "listingType") || (admin ? "" : "resale"));
@@ -99,8 +96,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     !validLocation ||
     !SELLER_TYPES.includes(sellerType) ||
     (!admin && sellerType === "company") ||
-    !PURPOSES.includes(purpose) ||
-    (purpose === "rent" && !RENT_PERIODS.includes(rentPeriod))
+    !PURPOSES.includes(purpose)
   ) {
     return { error: t.propertyChoices };
   }
@@ -121,14 +117,14 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     const { min, max } = PROPERTY_LIMITS.floor;
     return { error: fmt(t.numberRange, { field: dict.fields.floor, min: String(min), max: String(max) }) };
   }
-  // Rentals: optional weekend-night price (nightly only) and special prices (docs/rental-pricing.md).
-  const nightly = purpose === "rent" && rentPeriod === "night";
-  const weekendPrice = nightly ? text(fd, "weekendPrice") : "";
+  // Rentals are priced per night: optional weekend-night price and special prices (docs/rental-pricing.md).
+  const rent = purpose === "rent";
+  const weekendPrice = rent ? text(fd, "weekendPrice") : "";
   if (checkWholeNumber(weekendPrice, PROPERTY_LIMITS.price, false)) {
     const { min, max } = PROPERTY_LIMITS.price;
     return { error: fmt(t.numberRange, { field: fmt(dict.fields.weekendPrice, { currency: dict.currency }), min: groupDigits(String(min)), max: groupDigits(String(max)) }) };
   }
-  const priceRules = purpose === "rent" ? readPriceRules(String(fd.get("priceRules") ?? ""), rentPeriod, cairoToday()) : [];
+  const priceRules = rent ? readPriceRules(String(fd.get("priceRules") ?? ""), cairoToday()) : [];
   if (!priceRules) return { error: t.priceRulesFailed };
   if (!validPhone(sellerPhone) && !(company && !sellerPhone)) return { error: t.badPhone };
   if (sellerWhatsapp && !validPhone(sellerWhatsapp)) {
@@ -141,7 +137,6 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       listingType,
       featured: admin && fd.get("featured") === "on",
       purpose,
-      rentPeriod: purpose === "rent" ? rentPeriod : null,
       type,
       location,
       compound: text(fd, "compound", 80),
@@ -435,7 +430,10 @@ export async function updateProperty(id: string, _prev: FormState, fd: FormData)
   await requireAdmin();
   const parsed = await parseProperty(fd, true);
   if ("error" in parsed) return { ok: false, message: parsed.error };
+  const before = await store.getProperty(id);
   await store.updateProperty(id, { ...parsed.data, adminNotes: text(fd, "adminNotes", 2000) });
+  // A pending submission switched to Rent goes live now: rentals skip review (docs/pending-approvals.md).
+  if (before && publishesOnSave(before, parsed.data)) await store.setPropertyStatus(id, "published");
   updateTag(CACHE_TAGS.properties);
   revalidatePath("/", "layout");
   return { ok: true, message: (await getDict()).msg.saved };
@@ -443,9 +441,7 @@ export async function updateProperty(id: string, _prev: FormState, fd: FormData)
 
 export async function updateLead(id: string, fd: FormData) {
   await requireAdmin();
-  const status = text(fd, "status") as LeadStatus;
-  if (!LEAD_STATUSES.includes(status)) return;
-  await store.updateLead(id, { status, notes: text(fd, "notes", 2000) });
+  await store.updateLead(id, leadPatch(text(fd, "status"), text(fd, "notes", 2000)));
   revalidatePath("/admin", "layout");
 }
 

@@ -68,6 +68,11 @@ The booking number is `BOOKING_WHATSAPP` in `src/lib/booking.ts`. It is written 
 form; `intlDigits` turns it into `201099900149` for the `wa.me` link. It is separate from
 `NEXT_PUBLIC_SKYLINE_WHATSAPP`, which drives the general WhatsApp button under the request form.
 
+The same number is used by the **WhatsApp** button in the *Seller information* card on a rental's
+admin page (`/admin/properties/[id]`), so that button always opens Skyline's booking chat. Sale
+listings keep opening the seller's WhatsApp (or their phone when they gave none). The choice is
+`sellerWhatsapp` in `src/lib/sellers.ts`, tested in `src/lib/sellers.test.ts`.
+
 ## Data model
 
 None. The stay lives in the browser while the customer picks it and is never sent to the server.

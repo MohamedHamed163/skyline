@@ -20,19 +20,17 @@ const TODAY = "2026-10-13";
 const LAST = "2027-10-31";
 
 const nightly = (o: Partial<Rental> = {}): Rental => ({
-  ...bookingRental(makeProperty({ code: "VILLA12", title: "Sea view villa", purpose: "rent", rentPeriod: "night", price: 3000 })),
+  ...bookingRental(makeProperty({ code: "VILLA12", title: "Sea view villa", purpose: "rent", price: 3000 })),
   ...o,
 });
-const monthly = (o: Partial<Rental> = {}): Rental => nightly({ rentPeriod: "month", price: 25_000, ...o });
 
 describe("bookingRental", () => {
   it("keeps only the price fields, code and title, so the seller never reaches the browser", () => {
-    const p = makeProperty({ purpose: "rent", rentPeriod: "night", weekendPrice: 4500, adminNotes: "call after 5" });
+    const p = makeProperty({ purpose: "rent", weekendPrice: 4500, adminNotes: "call after 5" });
     expect(bookingRental(p)).toEqual({
       code: p.code,
       title: p.title,
       purpose: "rent",
-      rentPeriod: "night",
       price: p.price,
       weekendPrice: 4500,
       priceRules: [],
@@ -134,12 +132,8 @@ describe("stayTotal", () => {
     expect(stayTotal(rental, "2026-10-31", "2026-11-03")).toBe(7000);
   });
 
-  it("prices a rental without a rent period by the night", () => {
-    expect(stayTotal(nightly({ rentPeriod: null }), "2026-10-18", "2026-10-20")).toBe(6000);
-  });
-
-  it("has no total for a monthly rental", () => {
-    expect(stayTotal(monthly(), "2026-10-18", "2026-11-18")).toBeNull();
+  it("prices a long stay night by night too, since every rental is priced per night", () => {
+    expect(stayTotal(nightly(), "2026-10-20", "2026-11-19")).toBe(90_000);
   });
 });
 
@@ -153,19 +147,6 @@ describe("bookingMessage and bookingHref", () => {
         "Check-out: Sun, 18 Oct 2026",
         "Total nights: 4",
         "Total price: 15,000 EGP",
-        "Is it available on these dates?",
-      ].join("\n"),
-    );
-  });
-
-  it("leaves the total out for a monthly rental", () => {
-    expect(bookingMessage(en, monthly(), "2026-10-20", "2026-11-19")).toBe(
-      [
-        "Hi, I'm interested in the following booking:",
-        "Property: VILLA12 – Sea view villa",
-        "Check-in: Tue, 20 Oct 2026",
-        "Check-out: Thu, 19 Nov 2026",
-        "Total nights: 30",
         "Is it available on these dates?",
       ].join("\n"),
     );

@@ -59,7 +59,7 @@ describe("cache invalidation", () => {
   });
 
   it("expires properties when a rental's booked days change", async () => {
-    store.getProperty.mockResolvedValue(makeProperty({ purpose: "rent", rentPeriod: "night" }));
+    store.getProperty.mockResolvedValue(makeProperty({ purpose: "rent" }));
     const today = cairoToday();
     expect(await actions.setBookedDays("p1", today, today, true)).toEqual({ ok: true, days: [today] });
     expect(updateTag).toHaveBeenCalledWith(CACHE_TAGS.properties);

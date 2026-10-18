@@ -23,7 +23,6 @@ const toProperty = (r: Row): Property => ({
   listingType: toListingType(r.listing_type) ?? "resale",
   featured: Boolean(r.featured),
   purpose: (r.purpose as Property["purpose"]) ?? "sale",
-  rentPeriod: (r.rent_period as Property["rentPeriod"]) ?? null,
   type: r.type as Property["type"],
   location: r.location as string,
   // Joined from locations (see PROPERTY_SELECT); falls back to the id if the row is missing.
@@ -133,7 +132,9 @@ const propertyColumns = (p: PropertyInput) => ({
   listing_type: p.listingType,
   featured: p.featured,
   purpose: p.purpose,
-  rent_period: p.purpose === "rent" ? p.rentPeriod : null,
+  // Every rental is priced per night (docs/rental-pricing.md). The column is still written so the
+  // data reads the same to anything that looks at it.
+  rent_period: p.purpose === "rent" ? "night" : null,
   type: p.type,
   location: p.location,
   compound: p.compound,
@@ -143,7 +144,7 @@ const propertyColumns = (p: PropertyInput) => ({
   floor: p.floor,
   price: p.price,
   // Weekend and special prices belong to rentals only (docs/rental-pricing.md).
-  weekend_price: p.purpose === "rent" && p.rentPeriod === "night" ? p.weekendPrice : null,
+  weekend_price: p.purpose === "rent" ? p.weekendPrice : null,
   price_rules: sql().json(p.purpose === "rent" ? p.priceRules : []),
   description: p.description,
   developer_description: p.developerDescription,
@@ -358,9 +359,10 @@ export async function createLead(input: Omit<Lead, "id" | "status" | "notes" | "
   await sql()`INSERT INTO leads ${sql()(row)}`;
 }
 
-export async function updateLead(id: string, patch: { status: LeadStatus; notes: string }) {
+/** A missing status keeps the lead's current one (a "new" lead saved with notes only). */
+export async function updateLead(id: string, patch: { status?: LeadStatus; notes: string }) {
   await sql()`
-    UPDATE leads SET status = ${patch.status}, notes = ${patch.notes}, updated_at = now()
+    UPDATE leads SET status = COALESCE(${patch.status ?? null}, status), notes = ${patch.notes}, updated_at = now()
     WHERE id = ${id}`;
 }
 

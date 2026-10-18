@@ -15,12 +15,13 @@ import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
 import { pricesVary } from "@/lib/pricing";
+import { codeFromParam } from "@/lib/property-codes";
 import { avgPricePerSqm, placeLinks, similarTo } from "@/lib/search";
 import { getPublishedProperties, getPublishedProperty } from "@/lib/store";
 
 // Only published properties are public. Seller details are never rendered here.
 async function publishedProperty(params: Promise<{ code: string }>) {
-  return getPublishedProperty((await params).code.toUpperCase());
+  return getPublishedProperty(codeFromParam((await params).code));
 }
 
 export async function generateMetadata({ params }: PageProps<"/properties/[code]">): Promise<Metadata> {
@@ -41,7 +42,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   const skylineWhatsapp = process.env.NEXT_PUBLIC_SKYLINE_WHATSAPP;
   const today = cairoToday();
   // Rentals whose price changes by date show "From …" and point to the calendar (docs/rental-pricing.md).
-  const vary = property.purpose === "rent" && property.rentPeriod && pricesVary(property, today) ? property.rentPeriod : null;
+  const vary = property.purpose === "rent" && pricesVary(property, today);
 
   const facts = [
     { icon: <BuildingIcon />, label: p.type, value: t.type[property.type] },
@@ -70,7 +71,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           </>
         )}
         <span>/</span>
-        <span className="font-mono text-espresso" dir="ltr">{property.code}</span>
+        <span className="font-mono text-espresso" dir="auto">{property.code}</span>
       </nav>
 
       <div className="mt-4">
@@ -81,7 +82,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <PurposeBadge t={t} p={property} />
-            <span className="rounded-full border border-line bg-white px-3 py-1 font-mono text-xs font-semibold" dir="ltr">{property.code}</span>
+            <span className="rounded-full border border-line bg-white px-3 py-1 font-mono text-xs font-semibold" dir="auto">{property.code}</span>
             <span className="text-xs text-cocoa">{p.listedOn} {formatDay(property.createdAt, t.locale)}</span>
             <span className="ms-auto"><ShareButton /></span>
           </div>
@@ -93,7 +94,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           </p>
           {vary && (
             <p className="mt-1 text-sm text-cocoa">
-              <a href="#availability" className="hover:text-gold-deep hover:underline">{p.pricesVary[vary]}</a>
+              <a href="#availability" className="hover:text-gold-deep hover:underline">{p.pricesVary}</a>
             </p>
           )}
 

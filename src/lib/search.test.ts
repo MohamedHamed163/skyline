@@ -95,10 +95,10 @@ describe("applySearch", () => {
 describe("applySearch with rental prices that change by date", () => {
   const TODAY = "2026-10-13";
   // Standard 5,000 a night, but 2,000 all November: "From 2,000 EGP / night".
-  const discounted = makeProperty({ id: "a", purpose: "rent", rentPeriod: "night", price: 5000, priceRules: [{ from: "2026-11-01", to: "2026-11-30", price: 2000, weekendPrice: null }] });
-  const flat = makeProperty({ id: "b", purpose: "rent", rentPeriod: "night", price: 3000 });
+  const discounted = makeProperty({ id: "a", purpose: "rent", price: 5000, priceRules: [{ from: "2026-11-01", to: "2026-11-30", price: 2000, weekendPrice: null }] });
+  const flat = makeProperty({ id: "b", purpose: "rent", price: 3000 });
   // 2,500 on weekdays, 9,000 on Thursday and Friday nights: "From 2,500".
-  const weekends = makeProperty({ id: "c", purpose: "rent", rentPeriod: "night", price: 2500, weekendPrice: 9000 });
+  const weekends = makeProperty({ id: "c", purpose: "rent", price: 2500, weekendPrice: 9000 });
 
   it("filters rentals by their From price, the one customers see", () => {
     const upTo = (max: string) => applySearch([discounted, flat, weekends], parseSearch({ purpose: "rent", max }), TODAY).map((p) => p.id);

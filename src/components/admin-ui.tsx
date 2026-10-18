@@ -7,15 +7,11 @@ import { Badge, STATUS_TONE, type TONES } from "@/components/status-badge";
 import { setPropertyStatus, updateLead } from "@/lib/actions";
 import { formatDate, telHref, whatsappHref } from "@/lib/format";
 import { fmt, useDict } from "@/lib/i18n/client";
-import { LEAD_STATUSES, type Lead, type LeadStatus, type Property, type PropertyStatus } from "@/lib/types";
+import { SETTABLE_LEAD_STATUSES, type Lead, type LeadStatus, type Property, type PropertyStatus } from "@/lib/types";
 
 const LEAD_TONE: Record<LeadStatus, keyof typeof TONES> = {
   new: "amber",
   contacted: "blue",
-  interested: "green",
-  viewing_scheduled: "violet",
-  negotiating: "violet",
-  closed: "dark",
   not_interested: "gray",
 };
 
@@ -135,8 +131,12 @@ export function LeadCard({ lead }: { lead: Lead }) {
         <label className="label" htmlFor={`status-${lead.id}`}>
           {a.leadStatus}
         </label>
-        <select id={`status-${lead.id}`} name="status" defaultValue={lead.status} className="field">
-          {LEAD_STATUSES.map((s) => (
+        <select id={`status-${lead.id}`} name="status" defaultValue={lead.status === "new" ? "" : lead.status} className="field">
+          {/* A new lead shows "New" until the admin picks one of the two statuses; it isn't offered in the list. */}
+          <option value="" disabled hidden>
+            {t.leadStatus.new}
+          </option>
+          {SETTABLE_LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>
               {t.leadStatus[s]}
             </option>

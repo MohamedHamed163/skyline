@@ -44,13 +44,10 @@ export type LocationName = { en: string; ar: string };
 export const PURPOSES = ["sale", "rent"] as const;
 export type Purpose = (typeof PURPOSES)[number];
 
-export const RENT_PERIODS = ["night", "month"] as const;
-export type RentPeriod = (typeof RENT_PERIODS)[number];
-
 /**
- * A rental's special price for a run of nights ("YYYY-MM-DD" check-in days, nightly rentals) or months
- * ("YYYY-MM", monthly rentals), both ends included (docs/rental-pricing.md). On nightly rentals
- * `weekendPrice` is charged for the run's Thursday and Friday nights; null charges `price` every night.
+ * A rental's special price for a run of nights ("YYYY-MM-DD" check-in days), both ends included
+ * (docs/rental-pricing.md). `weekendPrice` is charged for the run's Thursday and Friday nights; null
+ * charges `price` every night.
  */
 export type PriceRule = { from: string; to: string; price: number; weekendPrice: number | null };
 
@@ -80,16 +77,11 @@ export const FEATURES = [
   "Fully finished",
 ] as const;
 
-export const LEAD_STATUSES = [
-  "new",
-  "contacted",
-  "interested",
-  "viewing_scheduled",
-  "negotiating",
-  "closed",
-  "not_interested",
-] as const;
+/** Every lead starts as "new"; the admin can only move it to the other two (docs/lead-statuses.md). */
+export const LEAD_STATUSES = ["new", "contacted", "not_interested"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
+/** The choices in a lead's status dropdown. */
+export const SETTABLE_LEAD_STATUSES = ["contacted", "not_interested"] as const satisfies readonly LeadStatus[];
 
 /** Files a broker or owner can attach to a Primary submission (docs/primary-documents.md). */
 export const DOCUMENT_KINDS = ["brochure", "paymentPlan"] as const;
@@ -123,10 +115,8 @@ export type Property = {
   listingType: ListingType;
   /** Admin-picked: shown first in its home-page section (and its compound first in Featured projects). */
   featured: boolean;
-  /** Rentals are created by the admin only; public submissions are always "sale". */
+  /** Rentals are created by the admin only and priced per night; public submissions are always "sale". */
   purpose: Purpose;
-  /** Price basis for rentals (null for sale). */
-  rentPeriod: RentPeriod | null;
   type: PropertyType;
   /** Location id (slug). */
   location: string;

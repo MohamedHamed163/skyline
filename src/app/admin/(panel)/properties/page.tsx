@@ -3,6 +3,7 @@ import { EmptyState, StatusActions, StatusBadge } from "@/components/admin-ui";
 import { CopyCode } from "@/components/copy-button";
 import { priceText } from "@/components/property-card";
 import { matchesListing } from "@/lib/admin-lists";
+import { awaitsApproval } from "@/lib/approvals";
 import { formatDay } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { sellerName } from "@/lib/sellers";
@@ -45,7 +46,8 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
       matchesSearch(p) &&
       // Primary and Resale hold sales only; rentals have their own list (docs/admin-listing-sections.md).
       matchesListing(p, purpose, listing) &&
-      (!status || p.status === status) &&
+      // Pending is the Pending Approvals list, which never has rentals (docs/pending-approvals.md).
+      (!status || (status === "pending" ? awaitsApproval(p) : p.status === status)) &&
       (!inactive || p.status === "sold" || p.status === "archived") &&
       (!type || p.type === type) &&
       (!location || p.location === location) &&

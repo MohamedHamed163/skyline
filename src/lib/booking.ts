@@ -1,7 +1,7 @@
 // Booking requests on a rental's property page (docs/booking-requests.md). The customer picks a
-// check-in and a check-out day on the Availability calendar, sees the nights (and the total price on
-// nightly rentals) and sends Skyline a ready-made WhatsApp message asking whether those dates are
-// free. Nothing is booked or saved here: Skyline replies, then blocks the days on the admin calendar.
+// check-in and a check-out day on the Availability calendar, sees the nights and the total price, and
+// sends Skyline a ready-made WhatsApp message asking whether those dates are free. Nothing is booked
+// or saved here: Skyline replies, then blocks the days on the admin calendar.
 
 import { addDays, daysBetween, lastBookableDay, type Day } from "./availability";
 import { formatCalendarDay, formatPrice, whatsappHref } from "./format";
@@ -23,7 +23,6 @@ export const bookingRental = (p: Property): Rental => ({
   code: p.code,
   title: p.title,
   purpose: p.purpose,
-  rentPeriod: p.rentPeriod,
   price: p.price,
   weekendPrice: p.weekendPrice,
   priceRules: p.priceRules,
@@ -65,26 +64,19 @@ export function pickDay(stay: Stay | null, day: Day, booked: ReadonlySet<Day>, t
   return { checkIn: day, checkOut: null };
 }
 
-/**
- * What a stay costs: each night's price added up, weekend and special prices included. Monthly
- * rentals have no total (null): the bar and the message leave it out and Skyline quotes the stay.
- */
-export function stayTotal(p: Pricing, checkIn: Day, checkOut: Day): number | null {
-  if (p.rentPeriod === "month") return null;
-  return stayNights(checkIn, checkOut).reduce((sum, night) => sum + nightQuote(p, night).price, 0);
-}
+/** What a stay costs: each night's price added up, weekend and special prices included. */
+export const stayTotal = (p: Pricing, checkIn: Day, checkOut: Day) => stayNights(checkIn, checkOut).reduce((sum, night) => sum + nightQuote(p, night).price, 0);
 
 /** The WhatsApp message asking Skyline whether a stay is free, in the site's language. */
 export function bookingMessage(t: Pick<Dict, "booking" | "currency" | "locale">, rental: Rental, checkIn: Day, checkOut: Day) {
   const m = t.booking.message;
-  const total = stayTotal(rental, checkIn, checkOut);
   return [
     m.greeting,
     fmt(m.property, { code: rental.code ?? "", title: rental.title }),
     fmt(m.checkIn, { day: formatCalendarDay(checkIn, t.locale) }),
     fmt(m.checkOut, { day: formatCalendarDay(checkOut, t.locale) }),
     fmt(m.nights, { n: stayNights(checkIn, checkOut).length }),
-    ...(total === null ? [] : [fmt(m.total, { price: formatPrice(total, t.currency) })]),
+    fmt(m.total, { price: formatPrice(stayTotal(rental, checkIn, checkOut), t.currency) }),
     m.question,
   ].join("\n");
 }

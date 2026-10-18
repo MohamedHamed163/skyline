@@ -33,14 +33,15 @@ describe("Rental code field", () => {
     expect(field).toContain("Rental code");
     expect(field).toMatch(/<input[^>]*required/);
     expect(field).toContain(`pattern="${CODE_PATTERN}"`);
-    expect(field).toContain('maxLength="30"');
-    expect(field).toContain('placeholder="e.g. SKY-RNT-0101"');
-    expect(field).toContain('dir="ltr"');
+    expect(field).toContain('maxLength="10"');
+    expect(field).toContain('placeholder="e.g. A101 or شاليه-٥"');
+    // Arabic codes read right to left, English ones left to right.
+    expect(field).toContain('dir="auto"');
   });
 
   it("explains the rules under the field", () => {
     expect(render({ admin: true, defaultPurpose: "rent" })).toContain(
-      "Shown on the listing and in its web address. Up to 30 English letters, numbers and dashes. It can&#x27;t be changed later.",
+      "Shown on the listing and in its web address. Up to 10 letters (English or Arabic), numbers and dashes. It can&#x27;t be changed later.",
     );
   });
 
@@ -51,16 +52,18 @@ describe("Rental code field", () => {
   });
 
   it("isn't on the edit form, so an existing listing's code can't change", () => {
-    expect(render({ admin: true, defaults: makeProperty({ purpose: "rent", rentPeriod: "night", code: "VILLA12" }) })).not.toContain('name="code"');
+    expect(render({ admin: true, defaults: makeProperty({ purpose: "rent", code: "VILLA12" }) })).not.toContain('name="code"');
   });
 
   it("isn't on the public submission form", () => {
     expect(render({ admin: false })).not.toContain('name="code"');
   });
 
-  it("is translated in Arabic, keeping the code left-to-right", () => {
+  it("is translated in Arabic, with the code's direction following what is typed", () => {
     const field = codeField(render({ admin: true, defaultPurpose: "rent", dict: ar }));
     expect(field).toContain("كود الوحدة");
-    expect(field).toContain('dir="ltr"');
+    expect(field).toContain("حتى 10 أحرف أو أرقام (عربية أو إنجليزية) وشرطات");
+    expect(field).toContain('placeholder="مثل شاليه-٥ أو A101"');
+    expect(field).toContain('dir="auto"');
   });
 });

@@ -82,7 +82,7 @@ export async function PropertyCard({ property }: { property: Property }) {
         <Facts t={t} p={property} />
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
           <span className="text-xs text-cocoa">
-            {t.type[property.type]} · <span className="font-mono" dir="ltr">{property.code}</span>
+            {t.type[property.type]} · <span className="font-mono" dir="auto">{property.code}</span>
           </span>
           <Link href={`${href}#request`} className="btn-primary btn-sm">
             {t.filters.requestDetails}

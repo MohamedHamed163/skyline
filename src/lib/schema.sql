@@ -64,10 +64,16 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS documents jsonb NOT NULL DEFAULT
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS booked_dates jsonb NOT NULL DEFAULT '[]';
 
 -- Rental prices that change by date (docs/rental-pricing.md). weekend_price: Thursday and Friday
--- nights of nightly rentals, NULL = the standard price. price_rules: special prices for runs of nights
--- or months, [{ "from", "to", "price", "weekendPrice" }]. Always NULL and [] for sales.
+-- nights, NULL = the standard price. price_rules: special prices for runs of nights,
+-- [{ "from", "to", "price", "weekendPrice" }]. Always NULL and [] for sales.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS weekend_price bigint;
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS price_rules jsonb NOT NULL DEFAULT '[]';
+
+-- Rentals are priced per night only (docs/rental-pricing.md). Monthly rentals become nightly and lose
+-- their special prices, which were for whole months. The price itself is kept as it was.
+UPDATE properties
+SET rent_period = 'night', price_rules = CASE WHEN rent_period = 'month' THEN '[]'::jsonb ELSE price_rules END
+WHERE purpose = 'rent' AND rent_period IS DISTINCT FROM 'night';
 
 -- "About the developer" text on Primary listings (docs/developer-description.md). '' when not given.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS developer_description text NOT NULL DEFAULT '';
@@ -139,3 +145,16 @@ CREATE INDEX IF NOT EXISTS properties_host_idx ON properties (host_id);
 -- { "result": "approved" | "rejected", "note", "at" }, shown to the host on /account.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS pending_edit jsonb;
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS edit_outcome jsonb;
+
+-- Rentals never wait in Pending Approvals (docs/pending-approvals.md): Skyline lists them itself.
+-- Publishes any rental still pending, giving it a SKY-RNT code if it has none.
+UPDATE properties SET
+  previous_status = status,
+  status = 'published',
+  code = COALESCE(code, 'SKY-RNT-' || lpad(nextval('property_code_rent')::text, 4, '0')),
+  updated_at = now()
+WHERE purpose = 'rent' AND status = 'pending';
+
+-- Leads have three statuses only (docs/lead-statuses.md): leads already past "Contacted" stay contacted.
+UPDATE leads SET status = 'contacted'
+WHERE status IN ('interested', 'viewing_scheduled', 'negotiating', 'closed');

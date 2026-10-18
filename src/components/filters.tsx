@@ -5,7 +5,7 @@ import { fmt, getDict } from "@/lib/i18n";
 import { locationLabel } from "@/lib/locations";
 import { searchHref, type SearchQuery } from "@/lib/search";
 import { getActiveLocations, getLocations } from "@/lib/store";
-import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, RENT_PERIODS } from "@/lib/types";
+import { FEATURES, LISTING_TYPES, PROPERTY_TYPES } from "@/lib/types";
 
 function Chips<T extends string | number>({ name, options, selected, labels, multiple }: { name: string; options: T[]; selected: T[]; labels: (v: T) => string; multiple?: boolean }) {
   return (
@@ -46,11 +46,8 @@ export async function Filters({ query, compounds }: { query: SearchQuery; compou
           <Chips name="purpose" options={["sale", "rent"]} selected={[query.purpose]} labels={(v) => t.purpose[v as "sale" | "rent"]} />
         </Section>
 
-        {query.purpose === "rent" ? (
-          <Section title={f.period}>
-            <Chips name="period" options={["", ...RENT_PERIODS] as string[]} selected={[query.period ?? ""]} labels={(v) => (v ? t.rentPeriod[v as "night" | "month"] : f.any)} />
-          </Section>
-        ) : (
+        {/* Rentals have no listing type, and every rental is priced per night. */}
+        {query.purpose !== "rent" && (
           <Section title={f.purpose}>
             <Chips name="listing" options={["", ...LISTING_TYPES] as string[]} selected={[query.listing ?? ""]} labels={(v) => (v ? t.listing[v as "primary" | "resale"] : f.all)} />
           </Section>
@@ -149,11 +146,9 @@ export async function Filters({ query, compounds }: { query: SearchQuery; compou
 /** Removable chips summarising the active filters (Bayut-style). */
 export async function ActiveFilters({ query }: { query: SearchQuery }) {
   const [t, locations] = await Promise.all([getDict(), getLocations()]);
-  const f = t.filters;
   const chips: { label: string; href: string }[] = [];
   if (query.q) chips.push({ label: `“${query.q}”`, href: searchHref(query, { q: "" }) });
   if (query.listing) chips.push({ label: t.listing[query.listing], href: searchHref(query, { listing: undefined }) });
-  if (query.period) chips.push({ label: `${f.period} ${t.rentPeriod[query.period]}`, href: searchHref(query, { period: undefined }) });
   query.locations.forEach((v) => {
     const l = locations.find((x) => x.id === v);
     if (l) chips.push({ label: locationLabel(t, l), href: searchHref(query, { locations: query.locations.filter((x) => x !== v) }) });

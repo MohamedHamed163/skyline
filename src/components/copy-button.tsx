@@ -19,7 +19,7 @@ export function CopyCode({ code }: { code: string }) {
       }}
       className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-ivory px-2 py-0.5 font-mono text-xs font-semibold hover:border-gold hover:text-gold-deep"
     >
-      <span dir="ltr">{code}</span>
+      <span dir="auto">{code}</span>
       <span aria-live="polite" className={`font-sans font-medium ${copied ? "text-success-deep" : "text-cocoa"}`}>
         {copied ? t.copied : t.copy}
       </span>

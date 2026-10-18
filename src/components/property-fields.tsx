@@ -15,13 +15,11 @@ import {
   LISTING_TYPES,
   PROPERTY_TYPES,
   PURPOSES,
-  RENT_PERIODS,
   SELLER_TYPES,
   type ListingType,
   type Location,
   type Property,
   type Purpose,
-  type RentPeriod,
 } from "@/lib/types";
 
 // Property + seller inputs shared by the public submission form and the admin forms.
@@ -52,7 +50,6 @@ export function PropertyFields({
   const f = t.fields;
   const d = defaults;
   const [purpose, setPurpose] = useState<Purpose>(d?.purpose ?? defaultPurpose);
-  const [rentPeriod, setRentPeriod] = useState<RentPeriod>(d?.rentPeriod ?? "night");
   const [adminListingType, setAdminListingType] = useState<ListingType>(d?.listingType ?? "resale");
   // Primary listings get "About the project" and "About the developer" (docs/developer-description.md).
   const primary = hasDeveloperDescription({ purpose, listingType: (admin ? adminListingType : listingType) ?? "resale" });
@@ -61,7 +58,6 @@ export function PropertyFields({
   const [standardPrice, setStandardPrice] = useState(d?.price ?? 0);
   const [weekendPrice, setWeekendPrice] = useState<number | null>(d?.weekendPrice ?? null);
   const rent = purpose === "rent";
-  const nightly = rent && rentPeriod === "night";
   const company = admin && sellerType === "company";
 
   return (
@@ -94,20 +90,9 @@ export function PropertyFields({
         ) : (
           <input type="hidden" name="purpose" value="sale" />
         )}
+        {/* Rentals have no listing type to choose, and are always priced per night (docs/rental-pricing.md). */}
         {purpose === "rent" ? (
-          <div>
-            <label className="label" htmlFor="rentPeriod">
-              {f.rentPeriodField}
-            </label>
-            <select id="rentPeriod" name="rentPeriod" required value={rentPeriod} onChange={(e) => setRentPeriod(e.target.value as RentPeriod)} className="field">
-              {RENT_PERIODS.map((v) => (
-                <option key={v} value={v}>
-                  {t.rentPeriod[v]}
-                </option>
-              ))}
-            </select>
-            <input type="hidden" name="listingType" value={d?.listingType ?? "resale"} />
-          </div>
+          <input type="hidden" name="listingType" value={d?.listingType ?? "resale"} />
         ) : admin ? (
           <div>
             <label className="label" htmlFor="listingType">
@@ -141,7 +126,7 @@ export function PropertyFields({
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
-              dir="ltr"
+              dir="auto"
               className="field font-mono uppercase placeholder:normal-case sm:max-w-sm"
             />
             <p className="mt-1 text-xs text-cocoa">{fmt(f.codeHint, { max: MAX_CODE_LENGTH })}</p>
@@ -218,15 +203,15 @@ export function PropertyFields({
             <NumberField id="floor" name="floor" limits={PROPERTY_LIMITS.floor} required={false} defaultValue={d?.floor ?? undefined} placeholder={f.floorPlaceholder} />
           </div>
         </div>
-        <div className={nightly ? undefined : "sm:col-span-2"}>
+        <div className={rent ? undefined : "sm:col-span-2"}>
           <label className="label" htmlFor="price">
-            {rent ? fmt(f.standardPrice, { period: t.rentPeriod[rentPeriod], currency: t.currency }) : fmt(f.price, { currency: t.currency })}
+            {fmt(rent ? f.standardPrice : f.price, { currency: t.currency })}
           </label>
           <NumberField id="price" name="price" limits={PROPERTY_LIMITS.price} grouped defaultValue={d?.price} onValueChange={(v) => setStandardPrice(Number(v))} />
         </div>
         {/* Rental pricing stays mounted when it doesn't apply, so switching back keeps what was typed;
             disabled, so it is neither sent nor validated then. */}
-        <fieldset className="min-w-0" disabled={!nightly} hidden={!nightly}>
+        <fieldset className="min-w-0" disabled={!rent} hidden={!rent}>
           <label className="label" htmlFor="weekendPrice">
             {fmt(f.weekendPrice, { currency: t.currency })} <span className="font-normal text-cocoa">{t.optional}</span>
           </label>
@@ -243,7 +228,7 @@ export function PropertyFields({
         </fieldset>
         {admin && today && (
           <fieldset className="min-w-0 rounded-xl border border-line p-4 sm:col-span-2 sm:p-5" disabled={!rent} hidden={!rent}>
-            <SpecialPrices unit={rentPeriod} standard={standardPrice} weekend={nightly ? weekendPrice : null} defaults={d} today={today} />
+            <SpecialPrices standard={standardPrice} weekend={weekendPrice} defaults={d} today={today} />
           </fieldset>
         )}
         <div className="sm:col-span-2">

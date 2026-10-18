@@ -16,7 +16,6 @@ import { SpecialPrices } from "./special-prices";
 // Tuesday 13 October 2026. 1 November 2026 is a Sunday.
 const TODAY = "2026-10-13";
 const november: PriceRule = { from: "2026-11-01", to: "2026-11-30", price: 2000, weekendPrice: null };
-const summer: PriceRule = { from: "2027-06", to: "2027-07", price: 40_000, weekendPrice: null };
 
 const render = (el: ReactElement, dict: Dict = en) => renderToStaticMarkup(h(DictProvider, { dict, children: el }));
 const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
@@ -27,10 +26,9 @@ describe("SpecialPrices on the rental form", () => {
   const nightly = (o: { standard?: number; weekend?: number | null; rules?: PriceRule[] } = {}) =>
     render(
       h(SpecialPrices, {
-        unit: "night",
         standard: o.standard ?? 3000,
         weekend: o.weekend === undefined ? 4500 : o.weekend,
-        defaults: { rentPeriod: "night", priceRules: o.rules ?? [] },
+        defaults: { priceRules: o.rules ?? [] },
         today: TODAY,
       }),
     );
@@ -67,7 +65,7 @@ describe("SpecialPrices on the rental form", () => {
 
   it("says when there are none yet, and sends an empty list", () => {
     const html = nightly();
-    expect(html).toContain(en.admin.pricing.none.night);
+    expect(html).toContain(en.admin.pricing.none);
     expect(sent(html)).toEqual([]);
   });
 
@@ -81,23 +79,15 @@ describe("SpecialPrices on the rental form", () => {
     for (const label of [en.admin.pricing.standard, en.admin.pricing.weekend, en.admin.pricing.special]) expect(html).toContain(label);
   });
 
-  it("shows a grid of the next 13 months with their prices on a monthly rental", () => {
-    const html = render(h(SpecialPrices, { unit: "month", standard: 25_000, weekend: null, defaults: { rentPeriod: "month", priceRules: [summer] }, today: TODAY }));
-    expect(html.match(/aria-label="[A-Z][a-z]+ 20\d\d: [\d,]+ EGP"/g)).toHaveLength(13);
-    expect(html).toContain('aria-label="October 2026: 25,000 EGP"');
-    expect(html).toContain('aria-label="June 2027: 40,000 EGP"');
-    expect(html).toContain('aria-label="October 2027: 25,000 EGP"');
-    expect(html).not.toContain(en.admin.pricing.weekend);
-    expect(sent(html)).toEqual([summer]);
-  });
-
-  it("starts empty when a nightly rental is switched to monthly, without losing its nights", () => {
-    const html = render(h(SpecialPrices, { unit: "month", standard: 25_000, weekend: null, defaults: { rentPeriod: "night", priceRules: [november] }, today: TODAY }));
-    expect(sent(html)).toEqual([]);
+  it("prices nights only: no month tiles and no monthly price", () => {
+    const html = nightly({ rules: [november] });
+    expect(html).not.toMatch(/aria-label="[A-Z][a-z]+ 20\d\d: /);
+    expect(html).not.toContain("/ month");
+    expect(html).toContain("2,000 EGP / night");
   });
 
   it("works in Arabic", () => {
-    const html = render(h(SpecialPrices, { unit: "night", standard: 3000, weekend: null, defaults: { rentPeriod: "night", priceRules: [november] }, today: TODAY }), ar);
+    const html = render(h(SpecialPrices, { standard: 3000, weekend: null, defaults: { priceRules: [november] }, today: TODAY }), ar);
     expect(html).toContain(ar.admin.pricing.title);
     expect(html).toContain("2,000 ج.م / ليلة");
   });
@@ -105,7 +95,7 @@ describe("SpecialPrices on the rental form", () => {
 
 describe("AvailabilityCalendar prices on the property page", () => {
   const calendar = (o: Partial<Property>, booked: string[] = []) =>
-    render(h(AvailabilityCalendar, { booked, today: TODAY, rental: bookingRental(makeProperty({ purpose: "rent", rentPeriod: "night", price: 3000, ...o })) }));
+    render(h(AvailabilityCalendar, { booked, today: TODAY, rental: bookingRental(makeProperty({ purpose: "rent", price: 3000, ...o })) }));
 
   it("shows each free night's price when the price changes by date", () => {
     const html = calendar({ weekendPrice: 4500 }, ["2026-10-16"]);
@@ -119,11 +109,5 @@ describe("AvailabilityCalendar prices on the property page", () => {
     const html = calendar({});
     expect(html).toContain("Wed, 14 Oct 2026, available<");
     expect(html).not.toContain("3,000");
-  });
-
-  it("shows each month's price under its name on a monthly rental", () => {
-    const html = calendar({ rentPeriod: "month", price: 25_000, priceRules: [summer] });
-    expect(html).toContain("25,000 EGP / month");
-    expect(html).toContain("Wed, 14 Oct 2026, available<");
   });
 });

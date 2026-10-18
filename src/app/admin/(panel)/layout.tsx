@@ -5,6 +5,7 @@ import { LanguageSwitch } from "@/components/language-switch";
 import { NavMenu } from "@/components/nav-link";
 import { Logo } from "@/components/site-chrome";
 import { adminLogout } from "@/lib/actions";
+import { awaitsApproval } from "@/lib/approvals";
 import { isAdmin } from "@/lib/auth";
 import { getDict } from "@/lib/i18n";
 import { getLeads, getProperties } from "@/lib/store";
@@ -18,7 +19,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const [t, properties, leads] = await Promise.all([getDict(), getProperties(), getLeads()]);
   const n = t.admin.nav;
-  const pending = properties.filter((p) => p.status === "pending").length;
+  // Rentals never wait for approval (docs/pending-approvals.md).
+  const pending = properties.filter(awaitsApproval).length;
   // Host edits to published listings waiting for approval (docs/host-edit-approval.md).
   const edits = properties.filter((p) => p.pendingEdit).length;
   const newLeads = leads.filter((l) => l.status === "new").length;

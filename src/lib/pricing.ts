@@ -1,14 +1,13 @@
-// Rental prices that change by date (docs/rental-pricing.md). A nightly rental has a standard price,
-// an optional weekend-night price and special prices for runs of nights; a monthly rental has a
-// standard price and special prices for runs of months. Nights are "YYYY-MM-DD" Cairo days named by
-// their check-in day, months "YYYY-MM" (see availability.ts). Special prices go as far ahead as the
-// booking calendar: from today (this month) to the end of the month MONTHS_AHEAD from now.
+// Rental prices that change by date (docs/rental-pricing.md). Every rental is priced per night: a
+// standard price, an optional weekend-night price and special prices for runs of nights. Nights are
+// "YYYY-MM-DD" Cairo days named by their check-in day (see availability.ts). Special prices go as far
+// ahead as the booking calendar: from today to the end of the month MONTHS_AHEAD from now.
 
-import { addDays, addMonths, daysBetween, isDay, lastBookableDay, monthOf, MONTHS_AHEAD, type Day, type Month } from "./availability";
+import { addDays, addMonths, daysBetween, isDay, lastBookableDay, type Day, type Month } from "./availability";
 import { formatPrice } from "./format";
 import type { Dict } from "./i18n/en";
 import { fmt } from "./i18n/shared";
-import type { PriceRule, Property, RentPeriod } from "./types";
+import type { PriceRule, Property } from "./types";
 import { PROPERTY_LIMITS } from "./validation";
 
 /** Weekend nights, by check-in weekday (0 = Sunday): Thursday and Friday, Egypt's holiday-home weekend. */
@@ -16,31 +15,11 @@ export const WEEKEND_NIGHTS: readonly number[] = [4, 5];
 
 export const isWeekendNight = (night: Day) => WEEKEND_NIGHTS.includes(new Date(`${night}T00:00:00Z`).getUTCDay());
 
-/** True for a real month in "YYYY-MM" form. */
-export const isMonth = (v: unknown): v is Month => typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
-
-// How each rent period keys its special prices, and the first and last key that can have one.
-const UNITS: Record<RentPeriod, { valid: (v: unknown) => v is string; step: (key: string, n: number) => string; first: (today: Day) => string; last: (today: Day) => string }> = {
-  night: { valid: isDay, step: addDays, first: (today) => today, last: lastBookableDay },
-  month: { valid: isMonth, step: addMonths, first: monthOf, last: (today) => addMonths(monthOf(today), MONTHS_AHEAD) },
-};
-
-/** The months a monthly rental can be priced for: this month and the MONTHS_AHEAD after it. */
-export const pricedMonths = (today: Day): Month[] => Array.from({ length: MONTHS_AHEAD + 1 }, (_, i) => addMonths(monthOf(today), i));
-
-/** How many nights (or months) there are from `from` to `to`, both included. */
-export function countKeys(unit: RentPeriod, from: string, to: string) {
-  const [start, end] = from <= to ? [from, to] : [to, from];
-  let n = 1;
-  for (let k = start; k < end; k = UNITS[unit].step(k, 1)) n++;
-  return n;
-}
-
 /**
  * What a price depends on. weekendPrice and priceRules are optional because published lists cached
  * before they existed have neither (docs/caching.md); missing means none.
  */
-export type Pricing = Pick<Property, "price" | "purpose" | "rentPeriod"> & Partial<Pick<Property, "weekendPrice" | "priceRules">>;
+export type Pricing = Pick<Property, "price" | "purpose"> & Partial<Pick<Property, "weekendPrice" | "priceRules">>;
 
 /** Where a price comes from, for the calendar colours. */
 export type PriceKind = "standard" | "weekend" | "special";
@@ -57,23 +36,14 @@ export function nightQuote(p: Pricing, night: Day): Quote {
   return { price: p.price, kind: "standard" };
 }
 
-/** A month's price on a monthly rental. */
-export function monthQuote(p: Pricing, month: Month): Quote {
-  const rule = ruleFor(p.priceRules, month);
-  return rule ? { price: rule.price, kind: "special" } : { price: p.price, kind: "standard" };
-}
-
 /** The lowest and highest price from today to the booking horizon. Sale listings have just one. */
 export function priceSpan(p: Pricing, today: Day): { min: number; max: number } {
-  if (p.purpose !== "rent" || !p.rentPeriod || (!p.weekendPrice && !p.priceRules?.length)) return { min: p.price, max: p.price };
-  const prices =
-    p.rentPeriod === "night"
-      ? daysBetween(today, lastBookableDay(today)).map((d) => nightQuote(p, d).price)
-      : pricedMonths(today).map((m) => monthQuote(p, m).price);
+  if (p.purpose !== "rent" || (!p.weekendPrice && !p.priceRules?.length)) return { min: p.price, max: p.price };
+  const prices = daysBetween(today, lastBookableDay(today)).map((d) => nightQuote(p, d).price);
   return { min: Math.min(...prices), max: Math.max(...prices) };
 }
 
-/** True when a rental's price changes by date, so customers see "From …" and a price on each day. */
+/** True when a rental's price changes by date, so customers see "From …" and a price on each night. */
 export function pricesVary(p: Pricing, today: Day) {
   const { min, max } = priceSpan(p, today);
   return min !== max;
@@ -83,11 +53,11 @@ export function pricesVary(p: Pricing, today: Day) {
 export const listPrice = (p: Pricing, today: Day) => priceSpan(p, today).min;
 
 /** "5,000 EGP / night", or "From 3,000 EGP / night" when the price changes by date. Sales show the plain price. */
-export function priceLabel(t: Pick<Dict, "currency" | "per" | "rentPeriod" | "rentFrom">, p: Pricing, today: Day) {
+export function priceLabel(t: Pick<Dict, "currency" | "perNight" | "rentFrom">, p: Pricing, today: Day) {
   const { min, max } = priceSpan(p, today);
   const price = formatPrice(min, t.currency);
-  if (p.purpose !== "rent" || !p.rentPeriod) return price;
-  const text = `${price} ${fmt(t.per, { period: t.rentPeriod[p.rentPeriod] })}`;
+  if (p.purpose !== "rent") return price;
+  const text = `${price} ${t.perNight}`;
   return min === max ? text : fmt(t.rentFrom, { price: text });
 }
 
@@ -97,9 +67,8 @@ export function priceLabel(t: Pick<Dict, "currency" | "per" | "rentPeriod" | "re
  * Sorts non-overlapping rules, clips them to today … the booking horizon (dropping past ones) and
  * merges neighbours with the same prices, so the list stays short and tidy.
  */
-export function tidyPriceRules(rules: readonly PriceRule[], unit: RentPeriod, today: Day): PriceRule[] {
-  const { step, first, last } = UNITS[unit];
-  const [lo, hi] = [first(today), last(today)];
+export function tidyPriceRules(rules: readonly PriceRule[], today: Day): PriceRule[] {
+  const [lo, hi] = [today, lastBookableDay(today)];
   const sorted = rules
     .map((r) => ({ ...r, from: r.from < lo ? lo : r.from, to: r.to > hi ? hi : r.to }))
     .filter((r) => r.from <= r.to)
@@ -107,7 +76,7 @@ export function tidyPriceRules(rules: readonly PriceRule[], unit: RentPeriod, to
   const out: PriceRule[] = [];
   for (const r of sorted) {
     const prev = out.at(-1);
-    if (prev && step(prev.to, 1) === r.from && prev.price === r.price && prev.weekendPrice === r.weekendPrice) out[out.length - 1] = { ...prev, to: r.to };
+    if (prev && addDays(prev.to, 1) === r.from && prev.price === r.price && prev.weekendPrice === r.weekendPrice) out[out.length - 1] = { ...prev, to: r.to };
     else out.push(r);
   }
   return out;
@@ -118,16 +87,7 @@ export function tidyPriceRules(rules: readonly PriceRule[], unit: RentPeriod, to
  * weekend nights, or after returning it to the standard price (`price` null). Whatever was set for
  * those nights before is replaced; the parts of other runs outside it are kept.
  */
-export function setPriceRule(
-  rules: readonly PriceRule[],
-  unit: RentPeriod,
-  from: string,
-  to: string,
-  price: number | null,
-  weekendPrice: number | null,
-  today: Day,
-): PriceRule[] {
-  const { step } = UNITS[unit];
+export function setPriceRule(rules: readonly PriceRule[], from: Day, to: Day, price: number | null, weekendPrice: number | null, today: Day): PriceRule[] {
   const [start, end] = from <= to ? [from, to] : [to, from];
   const out: PriceRule[] = [];
   for (const r of rules) {
@@ -135,15 +95,14 @@ export function setPriceRule(
       out.push(r);
       continue;
     }
-    if (r.from < start) out.push({ ...r, to: step(start, -1) });
-    if (r.to > end) out.push({ ...r, from: step(end, 1) });
+    if (r.from < start) out.push({ ...r, to: addDays(start, -1) });
+    if (r.to > end) out.push({ ...r, from: addDays(end, 1) });
   }
   if (price !== null) {
-    // Monthly rentals have no weekends; a weekend price equal to the price is no weekend price.
-    const weekend = unit === "night" && weekendPrice !== price ? weekendPrice : null;
-    out.push({ from: start, to: end, price, weekendPrice: weekend });
+    // A weekend price equal to the price is no weekend price.
+    out.push({ from: start, to: end, price, weekendPrice: weekendPrice !== price ? weekendPrice : null });
   }
-  return tidyPriceRules(out, unit, today);
+  return tidyPriceRules(out, today);
 }
 
 /** Most special prices one rental can have: far more than its seasons and holidays need. */
@@ -156,7 +115,7 @@ const validAmount = (v: unknown): v is number => Number.isInteger(v) && (v as nu
  * so the save is refused rather than changing prices silently. Runs may overlap: later ones win, as
  * they do on the form. Past runs are dropped and the rest tidied (tidyPriceRules).
  */
-export function readPriceRules(raw: string, unit: RentPeriod, today: Day): PriceRule[] | null {
+export function readPriceRules(raw: string, today: Day): PriceRule[] | null {
   if (!raw.trim()) return [];
   let data: unknown;
   try {
@@ -165,14 +124,13 @@ export function readPriceRules(raw: string, unit: RentPeriod, today: Day): Price
     return null;
   }
   if (!Array.isArray(data) || data.length > MAX_PRICE_RULES) return null;
-  const { valid } = UNITS[unit];
   let rules: PriceRule[] = [];
   for (const item of data) {
     if (typeof item !== "object" || item === null) return null;
     const { from, to, price, weekendPrice = null } = item as Record<string, unknown>;
-    if (!valid(from) || !valid(to) || !validAmount(price)) return null;
-    if (weekendPrice !== null && (unit === "month" || !validAmount(weekendPrice))) return null;
-    rules = setPriceRule(rules, unit, from, to, price, weekendPrice, today);
+    if (!isDay(from) || !isDay(to) || !validAmount(price)) return null;
+    if (weekendPrice !== null && !validAmount(weekendPrice)) return null;
+    rules = setPriceRule(rules, from, to, price, weekendPrice, today);
   }
   return rules;
 }
@@ -187,8 +145,8 @@ export function monthNights(month: Month, today: Day): [Day, Day] | null {
   return from <= to ? [from, to] : null;
 }
 
-/** The special price that covers every night (or month) from `from` to `to`, if one does. */
+/** The special price that covers every night from `from` to `to`, if one does. */
 export const ruleCovering = (rules: readonly PriceRule[], from: string, to: string) => rules.find((r) => r.from <= from && to <= r.to);
 
-/** True when any night (or month) from `from` to `to` has a special price. */
+/** True when any night from `from` to `to` has a special price. */
 export const hasRuleIn = (rules: readonly PriceRule[], from: string, to: string) => rules.some((r) => r.from <= to && r.to >= from);
