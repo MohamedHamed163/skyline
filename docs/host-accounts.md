@@ -13,9 +13,11 @@ Skyline, and the admin gives them a temporary one.
 
 - **List a property** in the navbar opens `/submit`. Signed out, the form is replaced by **Create
   your Skyline account**, with three fields:
-  - **Username**: 3–30 English letters or numbers, plus `.` `-` `_` in between (e.g. `ahmed.k`).
-    Usernames ignore letter case: `Ahmed` and `ahmed` are the same account. They are stored in
-    lower case.
+  - **Username**: 3–30 English letters, numbers, spaces or keyboard symbols (printable ASCII),
+    e.g. `Hamed ahmed`, `hamed@ahmed`, `hamed.ahmed123`, `AHMEDHAMED#@!`. Usernames ignore letter
+    case and extra spaces: `Hamed  Ahmed ` and `hamed ahmed` are the same account. They are
+    stored trimmed, with runs of spaces collapsed to one, in lower case. Arabic letters and emoji
+    are not accepted.
   - **Password**: at least 8 characters (at most 128), taken exactly as typed.
   - **Re-enter password**: it must match. A mismatch is shown under the field as you type, and
     the browser won't submit until it matches.

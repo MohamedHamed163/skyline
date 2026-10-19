@@ -864,7 +864,7 @@ describe("host accounts: sign up", () => {
   });
 
   it("checks the form before touching the database", async () => {
-    expect(await signUp({ username: "a b" })).toEqual({ ok: false, message: "Choose a username of 3–30 English letters or numbers (dots, dashes and underscores are allowed in between)." });
+    expect(await signUp({ username: "أحمد" })).toEqual({ ok: false, message: "Choose a username of 3–30 English letters, numbers, spaces or symbols." });
     expect(await signUp({ password: "short", confirmPassword: "short" })).toEqual({ ok: false, message: "Your password must have at least 8 characters." });
     expect(await signUp({ confirmPassword: "secret-pasS" })).toEqual({ ok: false, message: en.account.errors.passwordMismatch });
     expect(store.getHostLogin).not.toHaveBeenCalled();

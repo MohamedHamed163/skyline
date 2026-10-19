@@ -18,24 +18,28 @@ import {
 import { PROPERTY_STATUSES } from "./types";
 
 describe("usernames", () => {
-  it("are trimmed and lower-cased, so Ahmed and ahmed are one account", () => {
+  it("are trimmed, lower-cased and have runs of spaces collapsed, so Ahmed and ahmed are one account", () => {
     expect(normalizeUsername("  Ahmed.Broker ")).toBe("ahmed.broker");
+    expect(normalizeUsername("Hamed   Ahmed")).toBe(normalizeUsername("hamed ahmed"));
+    expect(normalizeUsername("Hamed \t Ahmed")).toBe("hamed ahmed");
   });
 
-  it("accept letters, digits, dots, dashes and underscores", () => {
-    for (const ok of ["abc", "ahmed.k", "skyline_broker-1", "a1b", "x".repeat(USERNAME_MAX)]) expect(validUsername(ok), ok).toBe(true);
+  it("accept letters, digits, spaces and keyboard symbols", () => {
+    const names = ["abc", "ahmed.k", "skyline_broker-1", "a1b", "Hamed ahmed", "hamed ahmed", "hamed@ahmed", "hamed.ahmed123", "AHMEDHAMED#@!", ".ahmed", "ahmed-", "x".repeat(USERNAME_MAX)];
+    for (const ok of names) expect(validUsername(normalizeUsername(ok)), ok).toBe(true);
   });
 
-  it("reject other characters, edge punctuation and bad lengths", () => {
-    for (const bad of ["ab", "x".repeat(USERNAME_MAX + 1), "ahmed k", "أحمد", "ahmed@mail", ".ahmed", "ahmed-", "_ab", ""]) {
-      expect(validUsername(bad), bad).toBe(false);
+  it("reject non-English characters and bad lengths", () => {
+    for (const bad of ["ab", "a  ", "x".repeat(USERNAME_MAX + 1), "أحمد", "ahmed\u00e9", "ahmed😀", ""]) {
+      expect(validUsername(normalizeUsername(bad)), bad).toBe(false);
     }
   });
 
   it("has a form pattern the browser can compile (pattern attributes use the v flag)", () => {
     const re = new RegExp(`^(?:${USERNAME_PATTERN})$`, "v");
-    expect(re.test("Ahmed.K_1")).toBe(true);
-    expect(re.test("ahmed k")).toBe(false);
+    expect(re.test("Hamed ahmed#@!")).toBe(true);
+    expect(re.test(" hamed ")).toBe(true);
+    expect(re.test("أحمد")).toBe(false);
   });
 });
 

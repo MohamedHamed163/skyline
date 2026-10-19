@@ -11,16 +11,19 @@ export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;
 
 /**
- * English letters, digits, dots, dashes and underscores, starting and ending with a letter or digit.
- * Also the form field's `pattern` (which the browser anchors at both ends); letters in either case
- * are accepted there and stored in lower case.
+ * English letters, digits, spaces and keyboard symbols (printable ASCII, e.g. `Hamed ahmed`,
+ * `hamed@ahmed`, `AHMED#@!`). Also the form field's `pattern` (which the browser anchors at both
+ * ends), so spaces before or after are allowed there; they are trimmed before saving.
  */
-export const USERNAME_PATTERN = "[A-Za-z0-9]([A-Za-z0-9._\\-]*[A-Za-z0-9])?";
+export const USERNAME_PATTERN = "[\\x20-\\x7E]*";
 
 const USERNAME_RE = new RegExp(`^(?:${USERNAME_PATTERN})$`);
 
-/** Usernames are case-insensitive: "Ahmed" and "ahmed" are the same account. */
-export const normalizeUsername = (raw: string) => raw.trim().toLowerCase();
+/**
+ * Usernames are case-insensitive and ignore extra spaces: "Hamed  Ahmed " and "hamed ahmed" are the
+ * same account. Trimmed, runs of spaces collapsed to one, lower-cased.
+ */
+export const normalizeUsername = (raw: string) => raw.trim().replace(/\s+/g, " ").toLowerCase();
 
 /** Whether a normalized username can be used. */
 export const validUsername = (username: string) =>

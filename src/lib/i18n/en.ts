@@ -231,7 +231,7 @@ const en = {
     signInTitle: "Sign in to your account",
     signInSubtitle: "Enter your username and password to see your listings or list another property.",
     username: "Username",
-    usernameHint: "{min}–{max} English letters or numbers. You can also use . - _",
+    usernameHint: "{min}–{max} English letters, numbers, spaces or symbols such as @ # . -",
     password: "Password",
     passwordHint: "At least {min} characters.",
     confirmPassword: "Re-enter password",
@@ -283,7 +283,7 @@ const en = {
     passwordChanged: "Password changed. You're signed out on your other devices.",
     temporaryPassword: "You signed in with a temporary password from Skyline. Please choose your own password.",
     errors: {
-      usernameInvalid: "Choose a username of {min}–{max} English letters or numbers (dots, dashes and underscores are allowed in between).",
+      usernameInvalid: "Choose a username of {min}–{max} English letters, numbers, spaces or symbols.",
       passwordShort: "Your password must have at least {min} characters.",
       passwordLong: "Your password can have at most {max} characters.",
       passwordMismatch: "The two passwords don't match. Please type the same password twice.",
