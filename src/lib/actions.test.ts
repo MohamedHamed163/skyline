@@ -20,6 +20,9 @@ const store = vi.hoisted(() => ({
   createHost: vi.fn(),
   setHostPassword: vi.fn(),
   logImpersonation: vi.fn(),
+  createPasswordRequest: vi.fn(),
+  resolvePasswordRequest: vi.fn(),
+  resolveHostPasswordRequests: vi.fn(),
   updateHostProperty: vi.fn(),
   saveHostEdit: vi.fn(),
   approveHostEdit: vi.fn(),
@@ -52,11 +55,13 @@ const {
   changeHostPassword,
   createLocation,
   createPropertyAdmin,
+  dismissPasswordRequest,
   hostSignIn,
   hostSignOut,
   hostSignUp,
   impersonateHost,
   rejectHostEdit,
+  requestPasswordReset,
   resetHostPassword,
   stopImpersonating,
   setBookedDays,
@@ -74,6 +79,7 @@ const form = (fields: Record<string, string | string[]>) => {
 };
 
 const JPEG = "data:image/jpeg;base64,AAAA";
+const fmtMinutes = (template: string, minutes: number) => template.replace("{minutes}", String(minutes));
 const HOST = makeHost({ sessionVersion: 4 });
 let ipCount = 0;
 
@@ -1042,6 +1048,112 @@ describe("admin: temporary host password", () => {
     store.setHostPassword.mockRejectedValueOnce(new Error("db down"));
     vi.spyOn(console, "error").mockImplementationOnce(() => {});
     expect(await resetHostPassword("h1")).toEqual({ ok: false, message: en.admin.hostPassword.failed });
+  });
+});
+
+describe("admin: password typed by the admin", () => {
+  beforeEach(() => {
+    store.setHostPassword.mockResolvedValue(3);
+    store.resolveHostPasswordRequests.mockResolvedValue(undefined);
+  });
+
+  it("sets the typed password exactly as typed, flagged temporary, and returns it once", async () => {
+    expect(await resetHostPassword("h1", " New pass 1 ")).toEqual({ ok: true, password: " New pass 1 " });
+    const [id, hash, temporary] = store.setHostPassword.mock.calls[0];
+    expect([id, temporary]).toEqual(["h1", true]);
+    expect(hash).not.toContain("New pass");
+    const { verifyPassword } = await import("./passwords");
+    expect(await verifyPassword(" New pass 1 ", hash)).toBe(true);
+  });
+
+  it("refuses a password that is too short or too long", async () => {
+    expect(await resetHostPassword("h1", "short")).toEqual({ ok: false, message: "Your password must have at least 8 characters." });
+    expect(await resetHostPassword("h1", "x".repeat(129))).toEqual({ ok: false, message: "Your password can have at most 128 characters." });
+    expect(store.setHostPassword).not.toHaveBeenCalled();
+  });
+
+  it("closes the account's open forgot-password requests, generated or typed", async () => {
+    await resetHostPassword("h1");
+    await resetHostPassword("h1", "chosen-password");
+    expect(store.resolveHostPasswordRequests).toHaveBeenCalledTimes(2);
+    expect(store.resolveHostPasswordRequests).toHaveBeenCalledWith("h1");
+  });
+
+  it("still returns the new password when closing the requests fails", async () => {
+    store.resolveHostPasswordRequests.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await resetHostPassword("h1", "chosen-password")).toEqual({ ok: true, password: "chosen-password" });
+  });
+
+  it("doesn't close requests when the password wasn't set", async () => {
+    store.setHostPassword.mockResolvedValueOnce(undefined);
+    await resetHostPassword("gone", "chosen-password");
+    expect(store.resolveHostPasswordRequests).not.toHaveBeenCalled();
+  });
+
+  it("is admin-only", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(resetHostPassword("h1", "chosen-password")).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.setHostPassword).not.toHaveBeenCalled();
+  });
+});
+
+describe("host accounts: forgot password request", () => {
+  beforeEach(() => {
+    store.getHostLogin.mockResolvedValue({ host: HOST, passwordHash: "scrypt$aa$bb" });
+    store.createPasswordRequest.mockResolvedValue("r1");
+  });
+
+  it("saves the request against the account, with the username normalized", async () => {
+    const result = await requestPasswordReset(null, form({ username: "  Ahmed ", phone: "01012345678" }));
+    expect(result).toEqual({ ok: true, message: "Request sent. Skyline will contact you on 01012345678 with a temporary password." });
+    expect(store.getHostLogin).toHaveBeenCalledWith("ahmed");
+    expect(store.createPasswordRequest).toHaveBeenCalledWith({ username: "ahmed", hostId: HOST.id, phone: "01012345678" });
+  });
+
+  it("answers the same for an unknown username, and saves it for the admin without an account", async () => {
+    store.getHostLogin.mockResolvedValue(undefined);
+    const result = await requestPasswordReset(null, form({ username: "nobody", phone: "01012345678" }));
+    expect(result).toEqual({ ok: true, message: "Request sent. Skyline will contact you on 01012345678 with a temporary password." });
+    expect(store.createPasswordRequest).toHaveBeenCalledWith({ username: "nobody", hostId: null, phone: "01012345678" });
+  });
+
+  it("checks the form first and saves nothing when it's wrong", async () => {
+    expect(await requestPasswordReset(null, form({ username: "", phone: "01012345678" }))).toEqual({ ok: false, message: en.account.errors.requestUsername });
+    expect(await requestPasswordReset(null, form({ username: "ahmed", phone: "12" }))).toEqual({ ok: false, message: en.account.errors.requestPhone });
+    expect(store.createPasswordRequest).not.toHaveBeenCalled();
+  });
+
+  it("allows 3 requests an hour per connection, not counting form mistakes", async () => {
+    for (let i = 0; i < 4; i++) await requestPasswordReset(null, form({ username: "ahmed", phone: "1" }));
+    for (let i = 0; i < 3; i++) expect((await requestPasswordReset(null, form({ username: "ahmed", phone: "01012345678" })))?.ok).toBe(true);
+    const result = await requestPasswordReset(null, form({ username: "ahmed", phone: "01012345678" }));
+    expect(result).toEqual({ ok: false, message: fmtMinutes(en.account.errors.tooManyRequests, 60) });
+    expect(store.createPasswordRequest).toHaveBeenCalledTimes(3);
+  });
+
+  it("reports a storage failure", async () => {
+    store.createPasswordRequest.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect(await requestPasswordReset(null, form({ username: "ahmed", phone: "01012345678" }))).toEqual({ ok: false, message: en.account.errors.requestFailed });
+  });
+
+  it("doesn't need a signed-in host", async () => {
+    hostAuth.currentHost.mockResolvedValue(null);
+    expect((await requestPasswordReset(null, form({ username: "ahmed", phone: "01012345678" })))?.ok).toBe(true);
+  });
+});
+
+describe("admin: dismiss a password request", () => {
+  it("closes the request", async () => {
+    await dismissPasswordRequest("r1");
+    expect(store.resolvePasswordRequest).toHaveBeenCalledWith("r1");
+  });
+
+  it("is admin-only", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(dismissPasswordRequest("r1")).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.resolvePasswordRequest).not.toHaveBeenCalled();
   });
 });
 

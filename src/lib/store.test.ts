@@ -289,3 +289,49 @@ describe("host edits", () => {
     expect(last().values).toEqual([{ json: outcome }, "p1", SUBMITTED]);
   });
 });
+
+describe("password help", () => {
+  const last = () => db.queries.at(-1)!;
+  const columns = () => (last().values[0] as { columns: Record<string, unknown> }).columns;
+
+  it("lists every account with its listing count and listing phones, newest first", async () => {
+    db.rows = [
+      { id: "h1", username: "ahmed", session_version: 1, password_temporary: true, created_at: new Date(0), listings: 2, phones: ["01012345678"] },
+      { id: "h2", username: "sara", session_version: 0, password_temporary: false, created_at: new Date(0), listings: 0, phones: null },
+    ];
+    expect(await store.getHostSummaries()).toEqual([
+      { ...makeHost({ sessionVersion: 1, temporaryPassword: true, createdAt: "1970-01-01T00:00:00.000Z" }), listings: 2, phones: ["01012345678"] },
+      { ...makeHost({ id: "h2", username: "sara", createdAt: "1970-01-01T00:00:00.000Z" }), listings: 0, phones: [] },
+    ]);
+    expect(last().text).toContain("FROM hosts h LEFT JOIN properties p ON p.host_id = h.id");
+    expect(last().text).toContain("ORDER BY h.created_at DESC");
+    // The password hash is never read.
+    expect(last().text).not.toContain("password_hash");
+  });
+
+  it("saves a request, with or without an account", async () => {
+    const id = await store.createPasswordRequest({ username: "ahmed", hostId: "h1", phone: "01012345678" });
+    expect(last().text).toContain("INSERT INTO password_requests");
+    expect(columns()).toEqual({ id, username: "ahmed", host_id: "h1", phone: "01012345678" });
+    await store.createPasswordRequest({ username: "nobody", hostId: null, phone: "01012345678" });
+    expect(columns()).toEqual(expect.objectContaining({ host_id: null }));
+  });
+
+  it("lists and counts open requests only, newest first", async () => {
+    db.rows = [{ id: "r1", username: "ahmed", host_id: null, phone: "0101", created_at: new Date(0) }];
+    expect(await store.getPasswordRequests()).toEqual([{ id: "r1", username: "ahmed", hostId: null, phone: "0101", createdAt: "1970-01-01T00:00:00.000Z" }]);
+    expect(last().text).toContain("WHERE resolved_at IS NULL ORDER BY created_at DESC");
+    db.rows = [{ n: 3 }];
+    expect(await store.countPasswordRequests()).toBe(3);
+    expect(last().text).toContain("WHERE resolved_at IS NULL");
+  });
+
+  it("closes one request, or every open one of an account", async () => {
+    await store.resolvePasswordRequest("r1");
+    expect(last().text).toContain("UPDATE password_requests SET resolved_at = now() WHERE id = ? AND resolved_at IS NULL");
+    expect(last().values).toEqual(["r1"]);
+    await store.resolveHostPasswordRequests("h1");
+    expect(last().text).toContain("WHERE host_id = ? AND resolved_at IS NULL");
+    expect(last().values).toEqual(["h1"]);
+  });
+});

@@ -68,8 +68,10 @@ Skyline, and the admin gives them a temporary one.
 
 ### Forgot password: a temporary password from Skyline
 
-- There is no self-service reset (accounts have no email or phone to send a link to). The host asks
-  Skyline, and the admin sets a temporary password for the account (see Admin behaviour).
+- There is no self-service reset (accounts have no email or phone to send a link to). The host
+  presses **Forgot your password?** under Sign in and leaves their username and phone number, and the
+  admin sets a temporary password for the account (see Admin behaviour and
+  [password-help.md](password-help.md)).
 - The host signs in with it as usual. `/account` then shows "You signed in with a temporary password
   from Skyline. Please choose your own password." with a **Change password** link to the card. The
   notice goes away once they change it.
@@ -105,7 +107,9 @@ editable one has **Edit**. Other hosts' listings, and properties the admin added
   everywhere."), then shows the new password once, with **Copy**: three groups of four lower-case
   letters and digits, e.g. `k7mp-x3qa-9fzt`, without look-alikes (0/o, 1/l/i) so it can be read out
   over the phone. It is never stored in plain text and isn't shown again: pressing the button again
-  makes a new one. The host's old password stops working and all their sessions end.
+  makes a new one. The host's old password stops working and all their sessions end. **Or type a
+  password** sets one the admin types instead. The same controls are on every account at
+  `/admin/accounts`, next to the forgot-password requests ([password-help.md](password-help.md)).
 - A host's edit to a pending or needs-changes listing puts it in **Pending Approvals**. An edit to a
   published listing waits under **Edits to approve**, where the admin compares old and new values
   and approves or rejects them ([host-edit-approval.md](host-edit-approval.md)).

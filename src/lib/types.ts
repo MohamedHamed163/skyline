@@ -180,6 +180,26 @@ export type Host = {
   createdAt: string;
 };
 
+/** A host account as the admin's Accounts page lists it (docs/password-help.md). */
+export type HostSummary = Host & {
+  /** Every listing the account sent, in any status. */
+  listings: number;
+  /** The seller phone numbers on those listings, to check a caller is the account's owner. */
+  phones: string[];
+};
+
+/** "I forgot my password", sent from the sign-in form (docs/password-help.md). */
+export type PasswordRequest = {
+  id: string;
+  /** As typed, normalized like a username. */
+  username: string;
+  /** The account with that username, or null when there is none. */
+  hostId: string | null;
+  /** Where the host asked to be contacted. */
+  phone: string;
+  createdAt: string;
+};
+
 export type Lead = {
   id: string;
   /** null for general inquiries sent from the contact page. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { hostSignIn, hostSignUp } from "@/lib/actions";
+import { hostSignIn, hostSignUp, requestPasswordReset } from "@/lib/actions";
 import { PASSWORD_MAX, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN, USERNAME_PATTERN } from "@/lib/host-accounts";
 import { fmt, useDict } from "@/lib/i18n/client";
 import { withFailureMessage } from "@/lib/safe-action";
@@ -10,12 +10,28 @@ export type HostAuthMode = "signUp" | "signIn";
 
 // The gate in front of /submit and /account (docs/host-accounts.md). First-time brokers and owners
 // create an account (username, password, the password again); returning ones sign in. Each form
-// links to the other. The username typed in one is carried over to the other.
+// links to the other. The username typed in one is carried over to the other. Sign-in links to
+// "Forgot your password?", which asks Skyline for a new one (docs/password-help.md).
 export function HostAuthForm({ initialMode }: { initialMode: HostAuthMode }) {
   const t = useDict().account;
-  const [mode, setMode] = useState(initialMode);
+  const [mode, setMode] = useState<HostAuthMode | "forgot">(initialMode);
   const [username, setUsername] = useState("");
   const signUp = mode === "signUp";
+
+  if (mode === "forgot") {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold">{t.forgot.title}</h2>
+        <p className="mt-2 text-sm text-cocoa">{t.forgot.subtitle}</p>
+        <ForgotFields username={username} onUsername={setUsername} />
+        <p className="mt-6 border-t border-line pt-4 text-center text-sm">
+          <button type="button" onClick={() => setMode("signIn")} className="cursor-pointer font-semibold text-gold-deep hover:underline">
+            {t.forgot.back}
+          </button>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -23,6 +39,13 @@ export function HostAuthForm({ initialMode }: { initialMode: HostAuthMode }) {
       <p className="mt-2 text-sm text-cocoa">{signUp ? t.signUpSubtitle : t.signInSubtitle}</p>
       {/* Keyed so switching forms starts with a clean message and password fields. */}
       <AuthFields key={mode} mode={mode} username={username} onUsername={setUsername} />
+      {!signUp && (
+        <p className="mt-3 text-center text-sm">
+          <button type="button" onClick={() => setMode("forgot")} className="cursor-pointer text-gold-deep hover:underline">
+            {t.forgotLink}
+          </button>
+        </p>
+      )}
       <p className="mt-6 border-t border-line pt-4 text-center text-sm text-cocoa">
         {signUp ? t.haveAccount : t.noAccount}{" "}
         <button type="button" onClick={() => setMode(signUp ? "signIn" : "signUp")} className="cursor-pointer font-semibold text-gold-deep hover:underline">
@@ -136,6 +159,81 @@ function AuthFields({ mode, username, onUsername }: { mode: HostAuthMode; userna
       )}
       <button type="submit" disabled={pending} className="btn-primary w-full py-3">
         {signUp ? (pending ? t.creatingAccount : t.createAccount) : pending ? t.signingIn : t.signIn}
+      </button>
+    </form>
+  );
+}
+
+// "Forgot your password?": the username and a phone number for Skyline to call back on. Once sent,
+// the form is replaced by the confirmation.
+function ForgotFields({ username, onUsername }: { username: string; onUsername: (v: string) => void }) {
+  const dict = useDict();
+  const t = dict.account;
+  const [state, action, pending] = useActionState(withFailureMessage(requestPasswordReset, dict.msg.requestFailed), null);
+  const [, startTransition] = useTransition();
+  const [phone, setPhone] = useState("");
+
+  if (state?.ok) {
+    return (
+      <p className="mt-6 rounded-xl bg-gold/15 px-4 py-3 text-sm" role="status">
+        {state.message}
+      </p>
+    );
+  }
+
+  return (
+    // onSubmit (not <form action>) so a failed attempt keeps what was typed.
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => action(fd));
+      }}
+      className="mt-6 space-y-4"
+    >
+      <div>
+        <label className="label" htmlFor="forgot-username">
+          {t.username}
+        </label>
+        <input
+          id="forgot-username"
+          name="username"
+          required
+          value={username}
+          onChange={(e) => onUsername(e.target.value)}
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={100}
+          dir="ltr"
+          className="field"
+        />
+      </div>
+      <div>
+        <label className="label" htmlFor="forgot-phone">
+          {t.forgot.phone}
+        </label>
+        <input
+          id="forgot-phone"
+          name="phone"
+          type="tel"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          autoComplete="tel"
+          maxLength={20}
+          placeholder={dict.phonePlaceholder}
+          dir="ltr"
+          className="field"
+        />
+      </div>
+      {state && !state.ok && (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {state.message}
+        </p>
+      )}
+      <button type="submit" disabled={pending} className="btn-primary w-full py-3">
+        {pending ? t.forgot.sending : t.forgot.send}
       </button>
     </form>
   );

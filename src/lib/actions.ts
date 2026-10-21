@@ -26,6 +26,7 @@ import {
 } from "./host-accounts";
 import { currentHost, endHostSession, hostSessionsEnabled, startHostSession } from "./host-auth";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
+import { checkAdminPassword, checkPasswordRequest } from "./password-help";
 import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
 import { holdsEdits, pickHostEdit } from "./listing-edits";
 import { DUMMY_HASH, generateTemporaryPassword, hashPassword, verifyPassword } from "./passwords";
@@ -248,6 +249,30 @@ export async function hostSignIn(_prev: FormState, fd: FormData): Promise<FormSt
   limiter.reset(key);
   await startHostSession(login.host.id, login.host.sessionVersion);
   redirect("/account");
+}
+
+/**
+ * "Forgot your password?" on the sign-in form (docs/password-help.md). Saves the username and a phone
+ * number for the admin, who checks it's the owner and sets a new password. The answer is the same
+ * whether or not the username exists, so it can't be used to find accounts.
+ */
+export async function requestPasswordReset(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = (await getDict()).account;
+  const username = normalizeUsername(text(fd, "username", 100));
+  const phone = text(fd, "phone", 20);
+  const error = checkPasswordRequest({ username, phone });
+  if (error) return { ok: false, message: t.errors[error] };
+  // Counted after the form checks, so typing mistakes don't use up the allowance.
+  const hit = limiter.hit(`password-request:${clientIp(await headers())}`, LIMITS.passwordRequest);
+  if (!hit.ok) return { ok: false, message: fmt(t.errors.tooManyRequests, { minutes: Math.ceil(hit.resetMs / 60_000) }) };
+  try {
+    const login = await store.getHostLogin(username);
+    await store.createPasswordRequest({ username, hostId: login?.host.id ?? null, phone });
+  } catch (err) {
+    console.error("Password request failed", err);
+    return { ok: false, message: t.errors.requestFailed };
+  }
+  return { ok: true, message: fmt(t.forgot.sent, { phone }) };
 }
 
 export async function hostSignOut() {
@@ -481,19 +506,26 @@ export async function createPropertyAdmin(_prev: FormState, fd: FormData): Promi
   redirect(`/admin/properties/${id}`);
 }
 
-// ---- Admin: host accounts (docs/host-accounts.md) ----
+// ---- Admin: host accounts (docs/host-accounts.md, docs/password-help.md) ----
 
 export type TemporaryPasswordResult = { ok: true; password: string } | { ok: false; message: string };
 
 /**
- * Gives a host who forgot their password a temporary one, which the admin passes on; it is returned
- * once and never stored in plain text. The account's sessions are all signed out, and /account asks
- * the host to choose their own password.
+ * Sets a new password for a host who forgot theirs, which the admin passes on: one the admin typed
+ * (`chosen`), or a generated one. It is returned once and never stored in plain text. Either way it
+ * counts as temporary: the account's sessions are all signed out, /account asks the host to choose
+ * their own, and the account's open forgot-password requests are closed.
  */
-export async function resetHostPassword(hostId: string): Promise<TemporaryPasswordResult> {
+export async function resetHostPassword(hostId: string, chosen?: string): Promise<TemporaryPasswordResult> {
   await requireAdmin();
-  const t = (await getDict()).admin.hostPassword;
-  const password = generateTemporaryPassword();
+  const dict = await getDict();
+  const t = dict.admin.hostPassword;
+  let password = generateTemporaryPassword();
+  if (chosen !== undefined) {
+    password = String(chosen);
+    const error = checkAdminPassword(password);
+    if (error) return { ok: false, message: fmt(dict.account.errors[error], { min: PASSWORD_MIN, max: PASSWORD_MAX }) };
+  }
   try {
     // undefined: no such account.
     if ((await store.setHostPassword(hostId, await hashPassword(password), true)) === undefined) return { ok: false, message: t.failed };
@@ -501,7 +533,20 @@ export async function resetHostPassword(hostId: string): Promise<TemporaryPasswo
     console.error("Temporary host password failed", err);
     return { ok: false, message: t.failed };
   }
+  // Not revalidated: the page keeps showing the password until the admin moves on.
+  try {
+    await store.resolveHostPasswordRequests(hostId);
+  } catch (err) {
+    console.error("Closing password requests failed", err);
+  }
   return { ok: true, password };
+}
+
+/** The admin closes a forgot-password request without changing a password (e.g. not the owner). */
+export async function dismissPasswordRequest(id: string) {
+  await requireAdmin();
+  await store.resolvePasswordRequest(id);
+  revalidatePath("/admin", "layout");
 }
 
 /**

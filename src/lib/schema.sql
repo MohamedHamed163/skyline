@@ -145,6 +145,20 @@ CREATE TABLE IF NOT EXISTS impersonation_log (
 );
 CREATE INDEX IF NOT EXISTS impersonation_log_host_idx ON impersonation_log (host_id, created_at DESC);
 
+-- Forgot-password requests (docs/password-help.md): a host who can't sign in leaves their username
+-- and a phone number; the admin checks it's them and sets a new password on /admin/accounts.
+-- host_id: the account with that username, NULL when there is none. resolved_at: set when the
+-- admin resets the account's password or dismisses the request; open requests have NULL.
+CREATE TABLE IF NOT EXISTS password_requests (
+  id          text PRIMARY KEY,
+  username    text NOT NULL,
+  host_id     text REFERENCES hosts (id),
+  phone       text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS password_requests_open_idx ON password_requests (created_at DESC) WHERE resolved_at IS NULL;
+
 -- The account that listed a property. NULL for properties the admin added and those sent before
 -- accounts existed.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS host_id text REFERENCES hosts (id);

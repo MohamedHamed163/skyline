@@ -8,7 +8,7 @@ import { adminLogout } from "@/lib/actions";
 import { awaitsApproval } from "@/lib/approvals";
 import { isAdmin } from "@/lib/auth";
 import { getDict } from "@/lib/i18n";
-import { getLeads, getProperties } from "@/lib/store";
+import { countPasswordRequests, getLeads, getProperties } from "@/lib/store";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getDict()).admin.metaTitle, robots: { index: false } };
@@ -17,7 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   if (!(await isAdmin())) redirect("/admin/login");
 
-  const [t, properties, leads] = await Promise.all([getDict(), getProperties(), getLeads()]);
+  const [t, properties, leads, passwordRequests] = await Promise.all([
+    getDict(),
+    getProperties(),
+    getLeads(),
+    // Forgot-password requests (docs/password-help.md); 0 until schema.sql adds the table.
+    countPasswordRequests().catch(() => 0),
+  ]);
   const n = t.admin.nav;
   // Rentals never wait for approval (docs/pending-approvals.md).
   const pending = properties.filter(awaitsApproval).length;
@@ -35,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/properties?purpose=rent", label: n.rentals },
     { href: "/admin/leads", label: n.leads, count: newLeads },
     { href: "/admin/sellers", label: n.sellers },
+    { href: "/admin/accounts", label: n.accounts, count: passwordRequests },
     { href: "/admin/customers", label: n.customers },
     { href: "/admin/locations", label: n.locations },
     { href: "/admin/properties?status=inactive", label: n.inactive },

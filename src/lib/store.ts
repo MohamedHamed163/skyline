@@ -6,7 +6,7 @@ import { sql } from "./db";
 import { HOST_EDITABLE } from "./host-accounts";
 import { holdsEdits, type EditOutcome, type HostEdit, type PendingEdit } from "./listing-edits";
 import { isCodeConflict } from "./property-codes";
-import { toListingType, type Host, type Lead, type LeadStatus, type Location, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
+import { toListingType, type Host, type HostSummary, type Lead, type LeadStatus, type Location, type PasswordRequest, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
 
@@ -411,6 +411,57 @@ export async function setHostPassword(id: string, passwordHash: string, temporar
 /** A host's listings in every status, newest first. */
 export async function getHostProperties(hostId: string) {
   return (await sql()`${PROPERTY_SELECT()} WHERE p.host_id = ${hostId} ORDER BY p.created_at DESC`).map(toProperty);
+}
+
+// ---- Password help (docs/password-help.md) ----
+
+/** Every account with its listing count and listing phones, newest first, for the admin. */
+export async function getHostSummaries(): Promise<HostSummary[]> {
+  const rows = await sql()`
+    SELECT h.id, h.username, h.session_version, h.password_temporary, h.created_at,
+      count(p.id)::int AS listings,
+      coalesce(array_agg(DISTINCT p.seller_phone) FILTER (WHERE p.seller_phone <> ''), '{}') AS phones
+    FROM hosts h LEFT JOIN properties p ON p.host_id = h.id
+    GROUP BY h.id
+    ORDER BY h.created_at DESC`;
+  return rows.map((r) => ({ ...toHost(r), listings: Number(r.listings ?? 0), phones: (r.phones as string[] | null) ?? [] }));
+}
+
+/** Saves a forgot-password request. `hostId`: the account with that username, or null. */
+export async function createPasswordRequest(input: { username: string; hostId: string | null; phone: string }) {
+  const row = { id: newId(), username: input.username, host_id: input.hostId, phone: input.phone };
+  await sql()`INSERT INTO password_requests ${sql()(row)}`;
+  return row.id;
+}
+
+/** Requests the admin hasn't handled yet, newest first. */
+export async function getPasswordRequests(): Promise<PasswordRequest[]> {
+  const rows = await sql()`
+    SELECT id, username, host_id, phone, created_at FROM password_requests
+    WHERE resolved_at IS NULL ORDER BY created_at DESC LIMIT 200`;
+  return rows.map((r) => ({
+    id: r.id as string,
+    username: r.username as string,
+    hostId: (r.host_id as string | null) ?? null,
+    phone: r.phone as string,
+    createdAt: iso(r.created_at),
+  }));
+}
+
+/** How many requests are open, for the admin menu. */
+export async function countPasswordRequests() {
+  const [row] = await sql()`SELECT count(*)::int AS n FROM password_requests WHERE resolved_at IS NULL`;
+  return Number(row?.n ?? 0);
+}
+
+/** Closes one request (the admin dismissed it). */
+export async function resolvePasswordRequest(id: string) {
+  await sql()`UPDATE password_requests SET resolved_at = now() WHERE id = ${id} AND resolved_at IS NULL`;
+}
+
+/** Closes every open request for an account (the admin just set its password). */
+export async function resolveHostPasswordRequests(hostId: string) {
+  await sql()`UPDATE password_requests SET resolved_at = now() WHERE host_id = ${hostId} AND resolved_at IS NULL`;
 }
 
 // ---- Admin impersonation audit (docs/host-impersonation.md) ----

@@ -86,11 +86,13 @@ export const LIMITS = {
   login: { max: 5, windowMs: 15 * MINUTE },
   /** New host accounts (checked in the sign-up action itself). */
   signUp: { max: 5, windowMs: 60 * MINUTE },
+  /** "Forgot your password?" requests (checked in the action itself). */
+  passwordRequest: { max: 3, windowMs: 60 * MINUTE },
   /** Primary-listing document uploads (checked in /api/documents itself). */
   documentUpload: { max: 10, windowMs: 10 * MINUTE },
 } satisfies Record<string, Limit>;
 
-export type Bucket = Exclude<keyof typeof LIMITS, "login" | "signUp" | "documentUpload">;
+export type Bucket = Exclude<keyof typeof LIMITS, "login" | "signUp" | "passwordRequest" | "documentUpload">;
 
 export function bucketFor(method: string, headers: Headers): Bucket {
   if (method !== "GET" && method !== "HEAD") return "action";
