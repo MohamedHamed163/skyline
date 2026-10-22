@@ -127,6 +127,16 @@ export type Property = {
   bathrooms: number;
   /** 0 is the ground floor; null when not given (villas and houses usually have none). */
   floor: number | null;
+  /**
+   * Primary sale listings describe a project's units as ranges: area, bedrooms, bathrooms, floor and
+   * price above are the "from" values and these the "to" values (docs/unit-ranges.md). null when
+   * every unit has the same value, and always null on Resale listings and rentals.
+   */
+  areaMax: number | null;
+  bedroomsMax: number | null;
+  bathroomsMax: number | null;
+  floorMax: number | null;
+  priceMax: number | null;
   /** Rentals: the standard price per night or month, charged unless a weekend or special price applies. */
   price: number;
   /** Nightly rentals only: the price of Thursday, Friday and Saturday nights; null charges the standard price. */

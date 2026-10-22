@@ -17,6 +17,7 @@ import { fmt, getDict } from "@/lib/i18n";
 import { sellerName, sellerWhatsapp, sellerWithType } from "@/lib/sellers";
 import { selectableLocations } from "@/lib/locations";
 import { getHost, getLeads, getLocations, getProperty } from "@/lib/store";
+import { rangeText } from "@/lib/unit-ranges";
 
 function Field({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
   return (
@@ -65,9 +66,9 @@ export default async function AdminPropertyPage({ params }: PageProps<"/admin/pr
           </div>
           <h1 className="mt-2 text-2xl font-bold">{property.title}</h1>
           <p className="text-sm text-cocoa">
-            {t.type[property.type]} · {placeLabel(t, property)} · {fmt(t.beds, { n: property.bedrooms })} ·{" "}
-            {fmt(t.baths, { n: property.bathrooms })} · {fmt(t.sqm, { n: property.area })}
-            {property.floor != null && <> · {floorText(t, property.floor)}</>}
+            {t.type[property.type]} · {placeLabel(t, property)} · {fmt(t.beds, { n: rangeText(property.bedrooms, property.bedroomsMax) })} ·{" "}
+            {fmt(t.baths, { n: rangeText(property.bathrooms, property.bathroomsMax) })} · {fmt(t.sqm, { n: rangeText(property.area, property.areaMax) })}
+            {property.floor != null && <> · {floorText(t, property.floor, property.floorMax)}</>}
           </p>
           <p className="mt-1 text-xl font-extrabold text-gold-deep">{priceText(t, property)}</p>
         </div>

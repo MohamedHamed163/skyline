@@ -54,6 +54,7 @@ The file ends with the statements that remove the set again.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
 - [Project and developer descriptions](docs/developer-description.md): Primary listings have "About the project" and "About the developer" texts, both shown on the property page.
+- [Unit ranges (Primary)](docs/unit-ranges.md): Primary listings give area, bedrooms, bathrooms, floor and price as "from … to …" across the project's units (e.g. 100–400 m², 3–5 bedrooms); search matches a project when any of its units could fit.
 - [Floor number](docs/floor.md): optional floor (0 = ground, up to 45) on the property form, shown in the property page's key facts.
 - [Lead statuses](docs/lead-statuses.md): leads are New, Contacted or Not Interested; the admin picks Contacted or Not Interested on each lead.
 - [Forms](docs/forms.md): digits-only numeric fields with live range checks, title/description character counters, failed requests that never clear a form or crash the page, and the dropdown chevron.

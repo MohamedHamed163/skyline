@@ -9,7 +9,8 @@ import type { Day } from "@/lib/availability";
 import { hasDeveloperDescription } from "@/lib/descriptions";
 import { locationLabel } from "@/lib/locations";
 import { CODE_PATTERN, MAX_CODE_LENGTH } from "@/lib/property-codes";
-import { PROPERTY_LIMITS, TEXT_LIMITS } from "@/lib/validation";
+import { MAX_KEYS, type RangeKey } from "@/lib/unit-ranges";
+import { PROPERTY_LIMITS, TEXT_LIMITS, type NumberLimits } from "@/lib/validation";
 import {
   FEATURES,
   LISTING_TYPES,
@@ -177,37 +178,23 @@ export function PropertyFields({
           </label>
           <input id="compound" name="compound" maxLength={80} defaultValue={d?.compound} className="field" />
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:col-span-2 sm:grid-cols-4">
-          <div>
-            <label className="label" htmlFor="area">
-              {f.area}
-            </label>
-            <NumberField id="area" name="area" limits={PROPERTY_LIMITS.area} grouped defaultValue={d?.area} />
-          </div>
-          <div>
-            <label className="label" htmlFor="bedrooms">
-              {f.bedrooms}
-            </label>
-            <NumberField id="bedrooms" name="bedrooms" limits={PROPERTY_LIMITS.bedrooms} defaultValue={d?.bedrooms} />
-          </div>
-          <div>
-            <label className="label" htmlFor="bathrooms">
-              {f.bathrooms}
-            </label>
-            <NumberField id="bathrooms" name="bathrooms" limits={PROPERTY_LIMITS.bathrooms} defaultValue={d?.bathrooms} />
-          </div>
-          <div>
-            <label className="label" htmlFor="floor">
-              {f.floor} <span className="font-normal text-cocoa">{t.optional}</span>
-            </label>
-            <NumberField id="floor" name="floor" limits={PROPERTY_LIMITS.floor} required={false} defaultValue={d?.floor ?? undefined} placeholder={f.floorPlaceholder} />
-          </div>
+        {/* Primary listings give each of these as a range across the project's units (docs/unit-ranges.md). */}
+        {primary && <p className="text-sm text-cocoa sm:col-span-2">{f.rangeHint}</p>}
+        <div className={`grid gap-4 sm:col-span-2 ${primary ? "sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-4"}`}>
+          <RangeField id="area" label={f.area} ranged={primary} grouped defaults={d} />
+          <RangeField id="bedrooms" label={f.bedrooms} ranged={primary} defaults={d} />
+          <RangeField id="bathrooms" label={f.bathrooms} ranged={primary} defaults={d} />
+          <RangeField id="floor" label={f.floor} ranged={primary} optional placeholder={f.floorPlaceholder} defaults={d} />
         </div>
         <div className={rent ? undefined : "sm:col-span-2"}>
-          <label className="label" htmlFor="price">
-            {fmt(rent ? f.standardPrice : f.price, { currency: t.currency })}
-          </label>
-          <NumberField id="price" name="price" limits={PROPERTY_LIMITS.price} grouped defaultValue={d?.price} onValueChange={(v) => setStandardPrice(Number(v))} />
+          <RangeField
+            id="price"
+            label={fmt(rent ? f.standardPrice : f.price, { currency: t.currency })}
+            ranged={primary}
+            grouped
+            defaults={d}
+            onFromChange={(v) => setStandardPrice(Number(v))}
+          />
         </div>
         {/* Rental pricing stays mounted when it doesn't apply, so switching back keeps what was typed;
             disabled, so it is neither sent nor validated then. */}
@@ -318,5 +305,75 @@ export function PropertyFields({
         </div>
       </fieldset>
     </>
+  );
+}
+
+/**
+ * One of the unit fields (area, bedrooms, bathrooms, floor, price). On Primary listings (`ranged`)
+ * a "To" box sits beside it, so the seller can give the range across the project's units
+ * (docs/unit-ranges.md); "To" is optional and can't go below "From". Otherwise the "To" box stays
+ * mounted, so switching back keeps what was typed, but hidden and disabled, so it isn't sent.
+ */
+function RangeField({
+  id,
+  label,
+  ranged,
+  optional = false,
+  grouped = false,
+  placeholder,
+  defaults,
+  onFromChange,
+}: {
+  id: RangeKey;
+  label: string;
+  ranged: boolean;
+  optional?: boolean;
+  grouped?: boolean;
+  placeholder?: string;
+  defaults?: Property;
+  onFromChange?: (digits: string) => void;
+}) {
+  const t = useDict();
+  const f = t.fields;
+  const limits: NumberLimits = PROPERTY_LIMITS[id];
+  const toKey = MAX_KEYS[id];
+  const [from, setFrom] = useState(defaults?.[id] == null ? "" : String(defaults[id]));
+  return (
+    <div className="min-w-0">
+      <label className="label" htmlFor={id}>
+        {label} {optional && <span className="font-normal text-cocoa">{t.optional}</span>}
+      </label>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <NumberField
+            id={id}
+            name={id}
+            limits={limits}
+            required={!optional}
+            grouped={grouped}
+            defaultValue={defaults?.[id] ?? undefined}
+            placeholder={ranged ? f.rangeFrom : placeholder}
+            onValueChange={(v) => {
+              setFrom(v);
+              onFromChange?.(v);
+            }}
+          />
+        </div>
+        <fieldset className="min-w-0 flex-1" disabled={!ranged} hidden={!ranged}>
+          <label className="sr-only" htmlFor={toKey}>
+            {fmt(f.rangeToField, { field: label })}
+          </label>
+          <NumberField
+            id={toKey}
+            name={toKey}
+            limits={{ min: from ? Math.max(Number(from), limits.min) : limits.min, max: limits.max }}
+            required={false}
+            grouped={grouped}
+            defaultValue={defaults?.[toKey] ?? undefined}
+            placeholder={f.rangeTo}
+          />
+        </fieldset>
+      </div>
+    </div>
   );
 }

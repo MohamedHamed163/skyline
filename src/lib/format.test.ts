@@ -4,6 +4,12 @@ import ar from "./i18n/ar";
 import en from "./i18n/en";
 
 describe("floorText", () => {
+  it("shows a Primary listing's floor range (docs/unit-ranges.md)", () => {
+    expect(floorText(en, 0, 10)).toBe("Floor 0 – 10");
+    expect(floorText(en, 3, 3)).toBe("Floor 3");
+    expect(floorText(en, 0, null)).toBe("Ground floor");
+  });
+
   it("calls floor 0 the ground floor", () => {
     expect(floorText(en, 0)).toBe("Ground floor");
     expect(floorText(ar, 0)).toBe("الطابق الأرضي");

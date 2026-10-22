@@ -78,6 +78,15 @@ WHERE purpose = 'rent' AND rent_period IS DISTINCT FROM 'night';
 -- "About the developer" text on Primary listings (docs/developer-description.md). '' when not given.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS developer_description text NOT NULL DEFAULT '';
 
+-- Unit ranges on Primary listings (docs/unit-ranges.md): area, bedrooms, bathrooms, floor and price
+-- hold the "from" values and these the "to" values. NULL when every unit has the same value, and
+-- always NULL on Resale listings and rentals.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS area_max integer;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS bedrooms_max integer;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS bathrooms_max integer;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS floor_max integer;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS price_max bigint;
+
 -- Property-code counters. Sequences never hand out the same number twice.
 -- property_code_premium counts primary listings: it keeps its old name so the numbers carry on.
 -- New rentals take a code typed by the admin (docs/rental-codes.md); property_code_rent is only used

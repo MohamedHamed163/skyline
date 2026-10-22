@@ -1,4 +1,6 @@
 import type { Lead, Property, Seller } from "./types";
+// Type-only: scripts/setup-db.mts runs this file under plain Node, which can't resolve runtime imports.
+import type { UnitRanges } from "./unit-ranges";
 
 // Sample data so the site isn't empty on first run. Replace with real inventory.
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
@@ -14,8 +16,8 @@ const SELLERS: Record<string, Seller> = {
 type SeedProperty = Omit<Property, "locationName">;
 type SeedInput = Omit<
   SeedProperty,
-  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules" | "hostId" | "pendingEdit" | "editOutcome"
-> & {
+  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules" | "hostId" | "pendingEdit" | "editOutcome" | keyof UnitRanges
+> & Partial<UnitRanges> & {
   age: number;
   featured?: boolean;
   floor?: number;
@@ -23,6 +25,12 @@ type SeedInput = Omit<
 };
 
 const property = ({ age, featured = false, floor, developerDescription = "", ...p }: SeedInput): SeedProperty => ({
+  // No unit ranges unless the sample sets them (docs/unit-ranges.md).
+  areaMax: null,
+  bedroomsMax: null,
+  bathroomsMax: null,
+  floorMax: null,
+  priceMax: null,
   ...p,
   featured,
   floor: floor ?? null,
@@ -55,9 +63,13 @@ export function seedProperties(): SeedProperty[] {
       location: "new-cairo",
       compound: "Sample Hills",
       area: 420,
+      areaMax: 560,
       bedrooms: 5,
+      bedroomsMax: 6,
       bathrooms: 4,
+      bathroomsMax: 5,
       price: 18_500_000,
+      priceMax: 26_000_000,
       description:
         "A bright, contemporary villa with floor-to-ceiling glass, a private pool and a landscaped garden. Open-plan living on the ground floor, five bedrooms upstairs and a roof terrace.",
       developerDescription: "Sample Developments has delivered six gated communities in East Cairo since 2008, all handed over on schedule.",

@@ -30,6 +30,10 @@ describe("withPendingEdit", () => {
 });
 
 describe("diffEdit", () => {
+  it("lists a changed unit range as its own row (docs/unit-ranges.md)", () => {
+    expect(diffEdit(live, edit({ areaMax: 400 }))).toEqual([{ field: "areaMax", before: null, after: 400 }]);
+  });
+
   it("is empty when nothing changed", () => {
     expect(diffEdit(live, edit())).toEqual([]);
   });

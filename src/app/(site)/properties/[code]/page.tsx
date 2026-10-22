@@ -18,6 +18,7 @@ import { pricesVary } from "@/lib/pricing";
 import { codeFromParam } from "@/lib/property-codes";
 import { avgPricePerSqm, placeLinks, similarTo } from "@/lib/search";
 import { getPublishedProperties, getPublishedProperty } from "@/lib/store";
+import { isRange, rangeText } from "@/lib/unit-ranges";
 
 // Only published properties are public. Seller details are never rendered here.
 async function publishedProperty(params: Promise<{ code: string }>) {
@@ -44,15 +45,20 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   // Rentals whose price changes by date show "From …" and point to the calendar (docs/rental-pricing.md).
   const vary = property.purpose === "rent" && pricesVary(property, today);
 
+  // Primary listings show "from – to" ranges across the project's units (docs/unit-ranges.md).
   const facts = [
     { icon: <BuildingIcon />, label: p.type, value: t.type[property.type] },
-    { icon: <BedIcon />, label: p.bedrooms, value: property.bedrooms },
-    { icon: <BathIcon />, label: p.bathrooms, value: property.bathrooms },
-    { icon: <AreaIcon />, label: p.area, value: fmt(t.sqm, { n: property.area }) },
+    { icon: <BedIcon />, label: p.bedrooms, value: rangeText(property.bedrooms, property.bedroomsMax) },
+    { icon: <BathIcon />, label: p.bathrooms, value: rangeText(property.bathrooms, property.bathroomsMax) },
+    { icon: <AreaIcon />, label: p.area, value: fmt(t.sqm, { n: rangeText(property.area, property.areaMax) }) },
     // Floor is optional, so the card only appears when it was given. `== null` also covers
     // properties cached before the field existed, which have no floor key at all.
-    ...(property.floor == null ? [] : [{ icon: <StairsIcon />, label: p.floor, value: property.floor === 0 ? p.ground : property.floor }]),
+    ...(property.floor == null
+      ? []
+      : [{ icon: <StairsIcon />, label: p.floor, value: rangeText(property.floor, property.floorMax, (n) => (n === 0 ? p.ground : String(n))) }]),
   ];
+  // A price per m² only makes sense for a single unit, not across a range of sizes or prices.
+  const perSqm = property.purpose === "sale" && !isRange(property, "area") && !isRange(property, "price");
   // Primary listings: "About the project" and "About the developer"; others: one "Overview".
   const headings = { overview: p.overview, project: p.aboutProject, developer: p.aboutDeveloper };
 
@@ -90,7 +96,7 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           <p className="mt-1 flex items-center gap-1.5 text-cocoa"><PinIcon /> {placeLabel(t, property)}</p>
           <p className="mt-4 text-3xl font-extrabold text-espresso">
             {priceText(t, property)}
-            {property.purpose === "sale" && <span className="mt-1 block whitespace-nowrap text-sm font-medium text-cocoa sm:ms-3 sm:mt-0 sm:inline">{formatPrice(Math.round(property.price / property.area), t.currency)} {t.market.perSqm}</span>}
+            {perSqm && <span className="mt-1 block whitespace-nowrap text-sm font-medium text-cocoa sm:ms-3 sm:mt-0 sm:inline">{formatPrice(Math.round(property.price / property.area), t.currency)} {t.market.perSqm}</span>}
           </p>
           {vary && (
             <p className="mt-1 text-sm text-cocoa">

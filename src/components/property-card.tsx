@@ -5,6 +5,7 @@ import { fmt, getDict, type Dict } from "@/lib/i18n";
 import { localName } from "@/lib/locations";
 import { priceLabel, type Pricing } from "@/lib/pricing";
 import type { ListingType, Property } from "@/lib/types";
+import { rangeText } from "@/lib/unit-ranges";
 
 // Photos can be bundled files or uploads stored as URLs, so a plain <img> is used.
 export function Photo({ src, alt, className = "" }: { src: string; alt: string; className?: string }) {
@@ -44,13 +45,13 @@ export function Facts({ t, p, className = "" }: { t: Dict; p: Property; classNam
   return (
     <ul className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-cocoa ${className}`}>
       <li className="flex items-center gap-1.5">
-        <BedIcon /> {fmt(t.beds, { n: p.bedrooms })}
+        <BedIcon /> {fmt(t.beds, { n: rangeText(p.bedrooms, p.bedroomsMax) })}
       </li>
       <li className="flex items-center gap-1.5">
-        <BathIcon /> {fmt(t.baths, { n: p.bathrooms })}
+        <BathIcon /> {fmt(t.baths, { n: rangeText(p.bathrooms, p.bathroomsMax) })}
       </li>
       <li className="flex items-center gap-1.5">
-        <AreaIcon /> {fmt(t.sqm, { n: p.area })}
+        <AreaIcon /> {fmt(t.sqm, { n: rangeText(p.area, p.areaMax) })}
       </li>
     </ul>
   );

@@ -19,10 +19,15 @@ function label(t: Dict, field: DiffField) {
     location: f.location,
     compound: f.compound,
     area: f.area,
+    areaMax: fmt(f.rangeToField, { field: f.area }),
     bedrooms: f.bedrooms,
+    bedroomsMax: fmt(f.rangeToField, { field: f.bedrooms }),
     bathrooms: f.bathrooms,
+    bathroomsMax: fmt(f.rangeToField, { field: f.bathrooms }),
     floor: f.floor,
+    floorMax: fmt(f.rangeToField, { field: f.floor }),
     price: fmt(f.price, { currency: t.currency }),
+    priceMax: fmt(f.rangeToField, { field: fmt(f.price, { currency: t.currency }) }),
     description: f.description,
     developerDescription: f.developerDescription,
     features: f.features,
@@ -51,10 +56,13 @@ function Value({ t, field, value, locations }: { t: Dict; field: DiffField; valu
       return <>{place ? locationLabel(t, place) : value}</>;
     }
     case "price":
+    case "priceMax":
       return <span dir="ltr">{formatPrice(Number(value), t.currency)}</span>;
     case "area":
+    case "areaMax":
       return <>{fmt(t.sqm, { n: value })}</>;
     case "floor":
+    case "floorMax":
       return <>{floorText(t, Number(value))}</>;
     case "sellerPhone":
     case "sellerWhatsapp":

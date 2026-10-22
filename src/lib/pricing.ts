@@ -4,7 +4,7 @@
 // ahead as the booking calendar: from today to the end of the month MONTHS_AHEAD from now.
 
 import { addDays, addMonths, daysBetween, isDay, lastBookableDay, type Day, type Month } from "./availability";
-import { formatPrice } from "./format";
+import { formatNumber, formatPrice } from "./format";
 import type { Dict } from "./i18n/en";
 import { fmt } from "./i18n/shared";
 import type { PriceRule, Property } from "./types";
@@ -16,10 +16,10 @@ export const WEEKEND_NIGHTS: readonly number[] = [4, 5, 6];
 export const isWeekendNight = (night: Day) => WEEKEND_NIGHTS.includes(new Date(`${night}T00:00:00Z`).getUTCDay());
 
 /**
- * What a price depends on. weekendPrice and priceRules are optional because published lists cached
- * before they existed have neither (docs/caching.md); missing means none.
+ * What a price depends on. weekendPrice, priceRules and priceMax are optional because published
+ * lists cached before they existed have none of them (docs/caching.md); missing means none.
  */
-export type Pricing = Pick<Property, "price" | "purpose"> & Partial<Pick<Property, "weekendPrice" | "priceRules">>;
+export type Pricing = Pick<Property, "price" | "purpose"> & Partial<Pick<Property, "weekendPrice" | "priceRules" | "priceMax">>;
 
 /** Where a price comes from, for the calendar colours. */
 export type PriceKind = "standard" | "weekend" | "special";
@@ -36,9 +36,13 @@ export function nightQuote(p: Pricing, night: Day): Quote {
   return { price: p.price, kind: "standard" };
 }
 
-/** The lowest and highest price from today to the booking horizon. Sale listings have just one. */
+/**
+ * The lowest and highest price from today to the booking horizon. Sale listings have just one,
+ * except Primary listings priced "from … to …" across their units (docs/unit-ranges.md).
+ */
 export function priceSpan(p: Pricing, today: Day): { min: number; max: number } {
-  if (p.purpose !== "rent" || (!p.weekendPrice && !p.priceRules?.length)) return { min: p.price, max: p.price };
+  if (p.purpose !== "rent") return { min: p.price, max: p.priceMax ?? p.price };
+  if (!p.weekendPrice && !p.priceRules?.length) return { min: p.price, max: p.price };
   const prices = daysBetween(today, lastBookableDay(today)).map((d) => nightQuote(p, d).price);
   return { min: Math.min(...prices), max: Math.max(...prices) };
 }
@@ -52,11 +56,14 @@ export function pricesVary(p: Pricing, today: Day) {
 /** The price search filters and sorts by: the lowest upcoming one, the same as the "From" price. */
 export const listPrice = (p: Pricing, today: Day) => priceSpan(p, today).min;
 
-/** "5,000 EGP / night", or "From 3,000 EGP / night" when the price changes by date. Sales show the plain price. */
+/**
+ * "5,000 EGP / night", or "From 3,000 EGP / night" when the price changes by date. Sales show the
+ * plain price, or "5,000,000 – 12,000,000 EGP" for a Primary listing's price range.
+ */
 export function priceLabel(t: Pick<Dict, "currency" | "perNight" | "rentFrom">, p: Pricing, today: Day) {
   const { min, max } = priceSpan(p, today);
   const price = formatPrice(min, t.currency);
-  if (p.purpose !== "rent") return price;
+  if (p.purpose !== "rent") return min === max ? price : `${formatNumber(min)} – ${formatPrice(max, t.currency)}`;
   const text = `${price} ${t.perNight}`;
   return min === max ? text : fmt(t.rentFrom, { price: text });
 }

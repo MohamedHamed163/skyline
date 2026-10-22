@@ -33,6 +33,7 @@ import { DUMMY_HASH, generateTemporaryPassword, hashPassword, verifyPassword } f
 import { MAX_PHOTOS, maxPhotos } from "./photo-limits";
 import { uploadPhotos } from "./photos";
 import { readPriceRules } from "./pricing";
+import { checkRange, MAX_KEYS, NO_RANGES, RANGE_KEYS, storedMax, type UnitRanges } from "./unit-ranges";
 import { isCodeConflict, MAX_CODE_LENGTH, normalizeCode, validCode } from "./property-codes";
 import { clientIp, LIMITS, limiter } from "./rate-limit";
 import { COMPANY_DEFAULT_NAME } from "./sellers";
@@ -118,6 +119,25 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
     const { min, max } = PROPERTY_LIMITS.floor;
     return { error: fmt(t.numberRange, { field: dict.fields.floor, min: String(min), max: String(max) }) };
   }
+  // Primary listings give each of these as "from … to …" (docs/unit-ranges.md). The "to" is optional;
+  // other listings never keep one, so switching a listing to Resale or Rent clears them.
+  const ranges: UnitRanges = { ...NO_RANGES };
+  if (primary) {
+    const from = { ...numbers, floor: floor ? Number(floor) : null };
+    const rangeLabels = { ...labels, floor: dict.fields.floor };
+    for (const key of RANGE_KEYS) {
+      const { min, max } = PROPERTY_LIMITS[key];
+      const raw = text(fd, MAX_KEYS[key]);
+      const field = fmt(dict.fields.rangeToField, { field: rangeLabels[key] });
+      if (checkWholeNumber(raw, PROPERTY_LIMITS[key], false)) {
+        return { error: fmt(t.numberRange, { field, min: groupDigits(String(min)), max: groupDigits(String(max)) }) };
+      }
+      const to = raw ? Number(raw) : null;
+      const error = checkRange(from[key], to);
+      if (error) return { error: fmt(t[error === "noFrom" ? "rangeNoFrom" : "rangeOrder"], { field: rangeLabels[key] }) };
+      ranges[MAX_KEYS[key]] = storedMax(from[key], to);
+    }
+  }
   // Rentals are priced per night: optional weekend-night price and special prices (docs/rental-pricing.md).
   const rent = purpose === "rent";
   const weekendPrice = rent ? text(fd, "weekendPrice") : "";
@@ -145,6 +165,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       weekendPrice: weekendPrice ? Number(weekendPrice) : null,
       priceRules,
       floor: floor ? Number(floor) : null,
+      ...ranges,
       description: text(fd, "description", TEXT_LIMITS.description),
       // Only Primary listings keep it, so switching a listing to Resale or Rent clears it.
       developerDescription: primary ? text(fd, "developerDescription", TEXT_LIMITS.developerDescription) : "",

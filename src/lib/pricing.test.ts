@@ -88,6 +88,14 @@ describe("prices customers see", () => {
     expect(priceLabel(en, sale, TODAY)).toBe("1,000,000 EGP");
   });
 
+  it("shows a Primary listing's price range (docs/unit-ranges.md)", () => {
+    const primary = makeProperty({ listingType: "primary", price: 5_000_000, priceMax: 12_000_000 });
+    expect(priceSpan(primary, TODAY)).toEqual({ min: 5_000_000, max: 12_000_000 });
+    expect(priceLabel(en, primary, TODAY)).toBe("5,000,000 – 12,000,000 EGP");
+    expect(priceLabel(ar, primary, TODAY)).toBe("5,000,000 – 12,000,000 ج.م");
+    expect(listPrice(primary, TODAY)).toBe(5_000_000);
+  });
+
   it("shows one price when a rental's price never changes", () => {
     expect(pricesVary(nightly(), TODAY)).toBe(false);
     expect(priceLabel(en, nightly(), TODAY)).toBe("3,000 EGP / night");

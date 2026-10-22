@@ -449,6 +449,95 @@ describe("developer description (Primary only)", () => {
   });
 });
 
+describe("unit ranges (Primary only)", () => {
+  const fields = {
+    title: "New compound",
+    type: "apartment",
+    location: "new-cairo",
+    price: "5000000",
+    area: "100",
+    bedrooms: "3",
+    bathrooms: "1",
+    floor: "1",
+    sellerType: "broker",
+    sellerName: "Broker",
+    sellerPhone: "+20 100 000 0000",
+    photos: JPEG,
+  };
+  const ranges = { priceMax: "12000000", areaMax: "400", bedroomsMax: "5", bathroomsMax: "3", floorMax: "10" };
+  const none = { areaMax: null, bedroomsMax: null, bathroomsMax: null, floorMax: null, priceMax: null };
+
+  beforeEach(() => photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]));
+
+  it("saves the from and to values with a Primary submission", async () => {
+    expect((await submitProperty(null, form({ ...fields, ...ranges, listingType: "primary" })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(
+      expect.objectContaining({
+        price: 5_000_000,
+        priceMax: 12_000_000,
+        area: 100,
+        areaMax: 400,
+        bedrooms: 3,
+        bedroomsMax: 5,
+        bathrooms: 1,
+        bathroomsMax: 3,
+        floor: 1,
+        floorMax: 10,
+      }),
+    );
+  });
+
+  it("leaves \"to\" optional, and stores a \"to\" equal to the \"from\" as a single value", async () => {
+    await submitProperty(null, form({ ...fields, listingType: "primary" }));
+    await submitProperty(null, form({ ...fields, listingType: "primary", areaMax: "100", bedroomsMax: "3", priceMax: "" }));
+    expect(store.createProperty).toHaveBeenNthCalledWith(1, expect.objectContaining(none));
+    expect(store.createProperty).toHaveBeenNthCalledWith(2, expect.objectContaining(none));
+  });
+
+  it("never keeps ranges on a Resale submission, and ignores invalid ones there", async () => {
+    expect((await submitProperty(null, form({ ...fields, ...ranges, listingType: "resale" })))?.ok).toBe(true);
+    expect((await submitProperty(null, form({ ...fields, areaMax: "1", listingType: "resale" })))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenNthCalledWith(1, expect.objectContaining({ area: 100, ...none }));
+  });
+
+  it("rejects a \"to\" below the \"from\", naming the field", async () => {
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", areaMax: "99" }))).toEqual({
+      ok: false,
+      message: "Area (m²): the “to” value must be at least the “from” value.",
+    });
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", priceMax: "4999999" }))).toEqual({
+      ok: false,
+      message: "Price (EGP): the “to” value must be at least the “from” value.",
+    });
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("rejects a \"to\" outside the field's limits", async () => {
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", bedroomsMax: "51" }))).toEqual({
+      ok: false,
+      message: "Bedrooms “to” value must be a whole number from 0 to 50.",
+    });
+    expect((await submitProperty(null, form({ ...fields, listingType: "primary", floorMax: "abc" })))?.ok).toBe(false);
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("needs a \"from\" floor when a \"to\" floor is given", async () => {
+    expect(await submitProperty(null, form({ ...fields, listingType: "primary", floor: "", floorMax: "10" }))).toEqual({
+      ok: false,
+      message: "Floor: fill in the “from” value too, or leave “to” empty.",
+    });
+  });
+
+  it("lets the admin edit ranges, and clears them when switching to Resale or Rent", async () => {
+    await updateProperty("p1", null, form({ ...fields, ...ranges, purpose: "sale", listingType: "primary" }));
+    await updateProperty("p1", null, form({ ...fields, ...ranges, purpose: "sale", listingType: "resale" }));
+    await updateProperty("p1", null, form({ ...fields, ...ranges, purpose: "rent", listingType: "primary" }));
+    expect(store.updateProperty).toHaveBeenNthCalledWith(1, "p1", expect.objectContaining({ areaMax: 400, priceMax: 12_000_000 }));
+    expect(store.updateProperty).toHaveBeenNthCalledWith(2, "p1", expect.objectContaining(none));
+    expect(store.updateProperty).toHaveBeenNthCalledWith(3, "p1", expect.objectContaining(none));
+  });
+});
+
 describe("listing type and home page (admin-only)", () => {
   const fields = {
     title: "Nice flat",
@@ -1236,6 +1325,12 @@ describe("host accounts: listings", () => {
     // Only host-editable fields: never the admin's home-page pick or the purpose.
     expect(values).not.toHaveProperty("featured");
     expect(values).not.toHaveProperty("purpose");
+  });
+
+  it("holds a host's unit ranges with the rest of their edit (docs/unit-ranges.md)", async () => {
+    expect((await updateHostProperty("p1", null, edited({ areaMax: "400", bedroomsMax: "5" })))?.ok).toBe(true);
+    const [, , { values }] = store.saveHostEdit.mock.calls[0];
+    expect(values).toEqual(expect.objectContaining({ area: 300, areaMax: 400, bedrooms: 4, bedroomsMax: 5, priceMax: null }));
   });
 
   it("edits a listing that isn't live yet in place", async () => {

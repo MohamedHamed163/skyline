@@ -233,3 +233,51 @@ describe("placeLinks", () => {
     expect(placeLinks(makeProperty({ compound: "   " })).project).toBeNull();
   });
 });
+
+describe("Primary unit ranges in search (docs/unit-ranges.md)", () => {
+  // Units from 100 to 400 m², 3 to 5 bedrooms, 1 to 3 bathrooms, 5 to 12 million.
+  const project = makeProperty({
+    id: "range",
+    listingType: "primary",
+    area: 100,
+    areaMax: 400,
+    bedrooms: 3,
+    bedroomsMax: 5,
+    bathrooms: 1,
+    bathroomsMax: 3,
+    price: 5_000_000,
+    priceMax: 12_000_000,
+  });
+  const ids = (params: Record<string, string>, items = [project]) => applySearch(items, parseSearch(params)).map((p) => p.id);
+
+  it("matches when any of the project's units could fit", () => {
+    expect(ids({ beds: "4" })).toEqual(["range"]);
+    expect(ids({ baths: "3" })).toEqual(["range"]);
+    expect(ids({ minArea: "350" })).toEqual(["range"]);
+    expect(ids({ maxArea: "150" })).toEqual(["range"]);
+    expect(ids({ min: "10000000" })).toEqual(["range"]);
+    expect(ids({ max: "6000000" })).toEqual(["range"]);
+  });
+
+  it("doesn't match when the whole range is outside the filter", () => {
+    expect(ids({ beds: "6" })).toEqual([]);
+    expect(ids({ minArea: "401" })).toEqual([]);
+    expect(ids({ maxArea: "99" })).toEqual([]);
+    expect(ids({ min: "12000001" })).toEqual([]);
+    expect(ids({ max: "4999999" })).toEqual([]);
+  });
+
+  it("sorts low-to-high by the bottom of each range and high-to-low by the top", () => {
+    const single = makeProperty({ id: "single", price: 8_000_000, area: 300 });
+    expect(ids({ sort: "price_asc" }, [single, project])).toEqual(["range", "single"]);
+    expect(ids({ sort: "price_desc" }, [single, project])).toEqual(["range", "single"]);
+    expect(ids({ sort: "area_desc" }, [single, project])).toEqual(["range", "single"]);
+  });
+
+  it("uses the top of each price range for project and location price ranges", () => {
+    const [p] = groupProjects([{ ...project, compound: "Sample Hills" }]);
+    expect([p.minPrice, p.maxPrice]).toEqual([5_000_000, 12_000_000]);
+    const [stats] = locationStats([project], [newCairo]);
+    expect([stats.minPrice, stats.maxPrice]).toEqual([5_000_000, 12_000_000]);
+  });
+});

@@ -1,5 +1,6 @@
 import { cairoToday, type Day } from "./availability";
 import { listPrice } from "./pricing";
+import { upper } from "./unit-ranges";
 import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, toListingType, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose } from "./types";
 
 // Public search: parses URL params, filters/sorts published properties, paginates,
@@ -107,12 +108,15 @@ export function sortHrefs(s: SearchQuery): Record<Sort, string> {
 
 /**
  * Filters and sorts published properties. Rentals whose price changes by date are filtered and
- * sorted by their "From" price, the lowest from `today` on (docs/rental-pricing.md).
+ * sorted by their "From" price, the lowest from `today` on (docs/rental-pricing.md). A Primary
+ * listing given as ranges matches when any of its units could: its range overlaps the filter
+ * (docs/unit-ranges.md). Low-to-high sorts use the bottom of each range, high-to-low ones the top.
  */
 export function applySearch(properties: Property[], s: SearchQuery, today: Day = cairoToday()) {
   const q = s.q.toLowerCase();
   const prices = new Map(properties.map((p) => [p, listPrice(p, today)]));
   const price = (p: Property) => prices.get(p) ?? p.price;
+  const topPrice = (p: Property) => p.priceMax ?? price(p);
   const out = properties.filter(
     (p) =>
       (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description, p.developerDescription].join(" ").toLowerCase().includes(q)) &&
@@ -121,19 +125,19 @@ export function applySearch(properties: Property[], s: SearchQuery, today: Day =
       (!s.types.length || s.types.includes(p.type)) &&
       (!s.locations.length || s.locations.includes(p.location)) &&
       (!s.compound || p.compound === s.compound) &&
-      (!s.beds || p.bedrooms >= s.beds) &&
-      (!s.baths || p.bathrooms >= s.baths) &&
-      (!s.minPrice || price(p) >= s.minPrice) &&
+      (!s.beds || upper(p, "bedrooms") >= s.beds) &&
+      (!s.baths || upper(p, "bathrooms") >= s.baths) &&
+      (!s.minPrice || topPrice(p) >= s.minPrice) &&
       (!s.maxPrice || price(p) <= s.maxPrice) &&
-      (!s.minArea || p.area >= s.minArea) &&
+      (!s.minArea || upper(p, "area") >= s.minArea) &&
       (!s.maxArea || p.area <= s.maxArea) &&
       s.features.every((f) => p.features.includes(f)),
   );
   const by: Record<Sort, (a: Property, b: Property) => number> = {
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     price_asc: (a, b) => price(a) - price(b),
-    price_desc: (a, b) => price(b) - price(a),
-    area_desc: (a, b) => b.area - a.area,
+    price_desc: (a, b) => topPrice(b) - topPrice(a),
+    area_desc: (a, b) => upper(b, "area") - upper(a, "area"),
   };
   return out.sort(by[s.sort]);
 }
@@ -154,7 +158,7 @@ export const avgPricePerSqm = (items: Property[]) =>
 export function locationStats(published: Property[], locations: Location[]) {
   return locations.map((location) => {
     const items = published.filter((p) => p.location === location.id);
-    const prices = items.map((p) => p.price);
+    const prices = items.flatMap((p) => [p.price, upper(p, "price")]);
     return {
       location,
       count: items.length,
@@ -226,7 +230,7 @@ export function groupProjects(published: Property[]): Project[] {
         properties,
         cover: properties[0].photos[0],
         minPrice: Math.min(...properties.map((p) => p.price)),
-        maxPrice: Math.max(...properties.map((p) => p.price)),
+        maxPrice: Math.max(...properties.map((p) => upper(p, "price"))),
         types: [...new Set(properties.map((p) => p.type))],
       } satisfies Project;
     })

@@ -3,12 +3,16 @@ import { fmt } from "./i18n/shared";
 
 export const CURRENCY = "EGP";
 
+/** "1,000,000". */
+export const formatNumber = (n: number) => new Intl.NumberFormat("en-US").format(n);
+
 export function formatPrice(price: number, currency = CURRENCY) {
-  return `${new Intl.NumberFormat("en-US").format(price)} ${currency}`;
+  return `${formatNumber(price)} ${currency}`;
 }
 
-/** "Ground floor" for 0, otherwise "Floor 3". */
-export function floorText(t: Pick<Dict, "floorN" | "groundFloor">, floor: number) {
+/** "Ground floor" for 0, otherwise "Floor 3"; "Floor 0 – 10" for a Primary listing's range (docs/unit-ranges.md). */
+export function floorText(t: Pick<Dict, "floorN" | "groundFloor">, floor: number, max?: number | null) {
+  if (max != null && max !== floor) return fmt(t.floorN, { n: `${floor} – ${max}` });
   return floor === 0 ? t.groundFloor : fmt(t.floorN, { n: floor });
 }
 

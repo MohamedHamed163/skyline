@@ -6,6 +6,7 @@ import { sql } from "./db";
 import { HOST_EDITABLE } from "./host-accounts";
 import { holdsEdits, type EditOutcome, type HostEdit, type PendingEdit } from "./listing-edits";
 import { isCodeConflict } from "./property-codes";
+import type { UnitRanges } from "./unit-ranges";
 import { toListingType, type Host, type HostSummary, type Lead, type LeadStatus, type Location, type PasswordRequest, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
@@ -32,7 +33,13 @@ const toProperty = (r: Row): Property => ({
   bedrooms: r.bedrooms as number,
   bathrooms: r.bathrooms as number,
   floor: (r.floor as number | null) ?? null,
+  // Unit ranges (docs/unit-ranges.md) read as "none" before schema.sql adds the columns; price_max is a bigint string.
+  areaMax: (r.area_max as number | null | undefined) ?? null,
+  bedroomsMax: (r.bedrooms_max as number | null | undefined) ?? null,
+  bathroomsMax: (r.bathrooms_max as number | null | undefined) ?? null,
+  floorMax: (r.floor_max as number | null | undefined) ?? null,
   price: Number(r.price),
+  priceMax: r.price_max == null ? null : Number(r.price_max),
   // bigint comes back as a string. Both columns read as "none" before schema.sql adds them.
   weekendPrice: r.weekend_price == null ? null : Number(r.weekend_price),
   priceRules: (r.price_rules as PriceRule[] | undefined) ?? [],
@@ -127,6 +134,16 @@ export type PropertyInput = Omit<
   "id" | "code" | "locationName" | "hostId" | "pendingEdit" | "editOutcome" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "bookedDates" | "createdAt" | "updatedAt"
 >;
 
+// The "to" values of a Primary listing's unit ranges (docs/unit-ranges.md). A host edit held from
+// before ranges existed has none of these keys, so missing ones are written as "no range".
+const rangeColumns = (p: Partial<UnitRanges>) => ({
+  area_max: p.areaMax ?? null,
+  bedrooms_max: p.bedroomsMax ?? null,
+  bathrooms_max: p.bathroomsMax ?? null,
+  floor_max: p.floorMax ?? null,
+  price_max: p.priceMax ?? null,
+});
+
 const propertyColumns = (p: PropertyInput) => ({
   title: p.title,
   listing_type: p.listingType,
@@ -143,6 +160,7 @@ const propertyColumns = (p: PropertyInput) => ({
   bathrooms: p.bathrooms,
   floor: p.floor,
   price: p.price,
+  ...rangeColumns(p),
   // Weekend and special prices belong to rentals only (docs/rental-pricing.md).
   weekend_price: p.purpose === "rent" ? p.weekendPrice : null,
   price_rules: sql().json(p.purpose === "rent" ? p.priceRules : []),
@@ -201,6 +219,7 @@ const hostEditColumns = (e: HostEdit) => ({
   bathrooms: e.bathrooms,
   floor: e.floor,
   price: e.price,
+  ...rangeColumns(e),
   description: e.description,
   developer_description: e.developerDescription,
   features: sql().json(e.features),
