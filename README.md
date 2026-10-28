@@ -52,6 +52,7 @@ The file ends with the statements that remove the set again.
 - [Primary or Resale on /submit](docs/primary-documents.md): sellers pick the listing type first; Primary submissions can attach a brochure (PDF) and payment plan (PDF/Excel), uploaded straight to Vercel Blob and shown only to the admin.
 - [Admin in Arabic and English](docs/admin-language.md): right-to-left and translation rules for the dashboard.
 - [Locations](docs/locations.md): admin-managed locations (add, edit, hide/restore) at `/admin/locations`.
+- [Sub-locations](docs/sub-locations.md): areas inside a location (New Cairo → Fifth Settlement, North Coast → Marassi). Sellers pick one or type their own; visitors narrow a search to them; the admin manages them and the typed ones at `/admin/locations`.
 - [Property page](docs/property-page.md): the listing detail page, its linked location/compound details and the area map.
 - [Project and developer descriptions](docs/developer-description.md): Primary listings have "About the project" and "About the developer" texts, both shown on the property page.
 - [Unit ranges (Primary)](docs/unit-ranges.md): Primary listings give area, bedrooms, bathrooms, floor and price as "from … to …" across the project's units (e.g. 100–400 m², 3–5 bedrooms); search matches a project when any of its units could fit.

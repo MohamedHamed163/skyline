@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeHost, makeLocation, makeProperty } from "@/test/fixtures";
+import { makeHost, makeLocation, makeProperty, makeSubLocation } from "@/test/fixtures";
 import en from "./i18n/en";
 
 // Server actions with the database, auth, uploads and Next.js runtime mocked out.
@@ -9,6 +9,10 @@ const store = vi.hoisted(() => ({
   createLocation: vi.fn(),
   updateLocation: vi.fn(),
   setLocationArchived: vi.fn(),
+  createSubLocation: vi.fn(),
+  updateSubLocation: vi.fn(),
+  setSubLocationArchived: vi.fn(),
+  linkTypedSubLocation: vi.fn(),
   createProperty: vi.fn(),
   codeTaken: vi.fn(),
   updateProperty: vi.fn(),
@@ -55,6 +59,10 @@ const {
   changeHostPassword,
   createLocation,
   createPropertyAdmin,
+  createSubLocation,
+  matchTypedSubLocation,
+  setSubLocationArchived,
+  updateSubLocation,
   dismissPasswordRequest,
   hostSignIn,
   hostSignOut,
@@ -1442,5 +1450,167 @@ describe("admin: host edits waiting for approval", () => {
     await expect(rejectHostEdit("p1", SUBMITTED, form({}))).rejects.toThrow("REDIRECT /admin/login");
     expect(store.approveHostEdit).not.toHaveBeenCalled();
     expect(store.rejectHostEdit).not.toHaveBeenCalled();
+  });
+});
+
+// ---- Sub-locations (docs/sub-locations.md) ----
+
+describe("sub-locations on property forms", () => {
+  const fifth = makeSubLocation();
+  const lasirena = makeSubLocation({ id: "north-coast--lasirena", locationId: "north-coast", nameEn: "Lasirena", nameAr: "لاسيرينا" });
+  const property = (extra: Record<string, string>) =>
+    form({
+      title: "Nice flat",
+      listingType: "resale",
+      type: "apartment",
+      location: "new-cairo",
+      price: "1000000",
+      area: "100",
+      bedrooms: "2",
+      bathrooms: "1",
+      sellerType: "owner",
+      sellerName: "Owner",
+      sellerPhone: "+20 100 000 0000",
+      photos: JPEG,
+      ...extra,
+    });
+
+  beforeEach(() => {
+    store.getLocations.mockResolvedValue([
+      makeLocation({ subLocations: [fifth] }),
+      makeLocation({ id: "north-coast", nameEn: "North Coast", nameAr: "الساحل الشمالي", subLocations: [lasirena] }),
+    ]);
+    photos.uploadPhotos.mockResolvedValue(["https://blob.example/properties/photo.jpg"]);
+  });
+
+  it("is optional", async () => {
+    expect((await submitProperty(null, property({})))?.ok).toBe(true);
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ subLocation: null, subLocationCustom: "" }));
+  });
+
+  it("saves a picked sub-location", async () => {
+    await submitProperty(null, property({ subLocation: fifth.id }));
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ location: "new-cairo", subLocation: fifth.id, subLocationCustom: "" }));
+  });
+
+  it("saves typed text under Other", async () => {
+    await submitProperty(null, property({ subLocation: "other", subLocationCustom: "Golden Square" }));
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ subLocation: null, subLocationCustom: "Golden Square" }));
+  });
+
+  it("rejects a sub-location from another location (a tampered form)", async () => {
+    expect(await submitProperty(null, property({ subLocation: lasirena.id }))).toEqual({ ok: false, message: en.msg.subLocationChoice });
+    expect(store.createProperty).not.toHaveBeenCalled();
+  });
+
+  it("saves the admin's choice too", async () => {
+    // Typed text naming a listed sub-location becomes it. The admin form redirects on success.
+    await expect(createPropertyAdmin(null, property({ purpose: "sale", sellerType: "company", subLocation: "other", subLocationCustom: "fifth settlement" }))).rejects.toThrow("REDIRECT");
+    expect(store.createProperty).toHaveBeenCalledWith(expect.objectContaining({ subLocation: fifth.id, subLocationCustom: "" }));
+  });
+});
+
+describe("approving a host edit with a typed sub-location", () => {
+  const SUBMITTED = "2026-10-20T09:00:00.000Z";
+  const fifth = makeSubLocation();
+
+  it("turns text the admin has since added to the list into that sub-location", async () => {
+    store.getLocations.mockResolvedValue([makeLocation({ subLocations: [fifth] })]);
+    const values = { ...makeProperty(), subLocation: null, subLocationCustom: "Fifth Settlement" };
+    store.getProperty.mockResolvedValue(makeProperty({ pendingEdit: { values, submittedAt: SUBMITTED } }));
+    await approveHostEdit("p1", SUBMITTED);
+    expect(store.approveHostEdit).toHaveBeenCalledWith(
+      "p1",
+      { values: expect.objectContaining({ subLocation: fifth.id, subLocationCustom: "" }), submittedAt: SUBMITTED },
+      expect.anything(),
+    );
+  });
+
+  it("clears a sub-location that no longer fits the edit's location", async () => {
+    store.getLocations.mockResolvedValue([makeLocation()]);
+    const values = { ...makeProperty(), subLocation: "north-coast--marassi", subLocationCustom: "" };
+    store.getProperty.mockResolvedValue(makeProperty({ pendingEdit: { values, submittedAt: SUBMITTED } }));
+    await approveHostEdit("p1", SUBMITTED);
+    expect(store.approveHostEdit).toHaveBeenCalledWith("p1", { values: expect.objectContaining({ subLocation: null, subLocationCustom: "" }), submittedAt: SUBMITTED }, expect.anything());
+  });
+});
+
+describe("admin sub-location actions", () => {
+  const fifth = makeSubLocation();
+  beforeEach(() => {
+    store.getLocations.mockResolvedValue([makeLocation({ subLocations: [fifth] })]);
+    store.createSubLocation.mockImplementation(async (input: { id: string }) => input.id);
+  });
+
+  it("adds a sub-location with an id made from its location and English name", async () => {
+    const result = await createSubLocation("new-cairo", null, form({ nameEn: "Madinaty", nameAr: "مدينتي", sortOrder: "50" }));
+    expect(result).toEqual({ ok: true, message: en.msg.subLocationAdded });
+    expect(store.createSubLocation).toHaveBeenCalledWith({ id: "new-cairo--madinaty", locationId: "new-cairo", slug: "madinaty", nameEn: "Madinaty", nameAr: "مدينتي", sortOrder: 50 });
+    expect(store.linkTypedSubLocation).not.toHaveBeenCalled();
+  });
+
+  it("moves the properties that typed it onto a sub-location added from the typed panel", async () => {
+    await createSubLocation("new-cairo", null, form({ nameEn: "New Narges", nameAr: "النرجس الجديدة", typed: "New  narges" }));
+    expect(store.linkTypedSubLocation).toHaveBeenCalledWith("new-cairo", "new narges", "new-cairo--new-narges");
+  });
+
+  it("rejects a name the location already has", async () => {
+    expect(await createSubLocation("new-cairo", null, form({ nameEn: "fifth settlement", nameAr: "x" }))).toEqual({ ok: false, message: en.msg.subLocationDuplicate });
+    expect(store.createSubLocation).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing names and unknown locations", async () => {
+    expect(await createSubLocation("new-cairo", null, form({ nameEn: "Madinaty" }))).toEqual({ ok: false, message: en.msg.locationMissing });
+    expect(await createSubLocation("atlantis", null, form({ nameEn: "A", nameAr: "ب" }))).toEqual({ ok: false, message: en.msg.subLocationSaveFailed });
+  });
+
+  it("picks a free slug when the English name's slug is taken", async () => {
+    store.getLocations.mockResolvedValue([makeLocation({ subLocations: [makeSubLocation({ id: "new-cairo--madinaty", nameEn: "Madinaty (old)", nameAr: "قديم" })] })]);
+    await createSubLocation("new-cairo", null, form({ nameEn: "Madinaty", nameAr: "مدينتي" }));
+    expect(store.createSubLocation).toHaveBeenCalledWith(expect.objectContaining({ id: "new-cairo--madinaty-2" }));
+  });
+
+  it("keeps the order within bounds", async () => {
+    await createSubLocation("new-cairo", null, form({ nameEn: "A", nameAr: "ب", sortOrder: "-5" }));
+    expect(store.createSubLocation).toHaveBeenCalledWith(expect.objectContaining({ sortOrder: 0 }));
+  });
+
+  it("reports a database failure", async () => {
+    store.createSubLocation.mockRejectedValue(new Error("down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await createSubLocation("new-cairo", null, form({ nameEn: "A", nameAr: "ب" }))).toEqual({ ok: false, message: en.msg.subLocationSaveFailed });
+  });
+
+  it("renames and reorders, keeping the id", async () => {
+    expect(await updateSubLocation(fifth.id, null, form({ nameEn: "Fifth Settlement", nameAr: "التجمع الخامس", sortOrder: "5" }))).toEqual({ ok: true, message: en.msg.saved });
+    expect(store.updateSubLocation).toHaveBeenCalledWith(fifth.id, { nameEn: "Fifth Settlement", nameAr: "التجمع الخامس", sortOrder: 5 });
+  });
+
+  it("can't update a sub-location that doesn't exist", async () => {
+    expect(await updateSubLocation("new-cairo--atlantis", null, form({ nameEn: "A", nameAr: "ب" }))).toEqual({ ok: false, message: en.msg.subLocationSaveFailed });
+  });
+
+  it("hides and restores", async () => {
+    await setSubLocationArchived(fifth.id, true);
+    expect(store.setSubLocationArchived).toHaveBeenCalledWith(fifth.id, true);
+  });
+
+  it("matches typed text to an existing sub-location", async () => {
+    expect(await matchTypedSubLocation("new-cairo", "5th settlement", null, form({ subLocation: fifth.id }))).toEqual({ ok: true, message: en.msg.saved });
+    expect(store.linkTypedSubLocation).toHaveBeenCalledWith("new-cairo", "5th settlement", fifth.id);
+  });
+
+  it("won't match to a sub-location of another location", async () => {
+    expect(await matchTypedSubLocation("new-cairo", "x", null, form({ subLocation: "north-coast--marassi" }))).toEqual({ ok: false, message: en.msg.subLocationChoice });
+    expect(store.linkTypedSubLocation).not.toHaveBeenCalled();
+  });
+
+  it("is admin-only", async () => {
+    auth.isAdmin.mockResolvedValue(false);
+    await expect(createSubLocation("new-cairo", null, form({ nameEn: "A", nameAr: "ب" }))).rejects.toThrow("REDIRECT /admin/login");
+    await expect(setSubLocationArchived(fifth.id, true)).rejects.toThrow("REDIRECT /admin/login");
+    await expect(matchTypedSubLocation("new-cairo", "x", null, form({ subLocation: fifth.id }))).rejects.toThrow("REDIRECT /admin/login");
+    expect(store.createSubLocation).not.toHaveBeenCalled();
+    expect(store.setSubLocationArchived).not.toHaveBeenCalled();
   });
 });

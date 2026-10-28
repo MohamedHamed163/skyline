@@ -1,5 +1,6 @@
 import { cairoToday, type Day } from "./availability";
 import { listPrice } from "./pricing";
+import { subLocationParent } from "./locations";
 import { upper } from "./unit-ranges";
 import { FEATURES, LISTING_TYPES, PROPERTY_TYPES, toListingType, type ListingType, type Location, type LocationName, type Property, type PropertyType, type Purpose } from "./types";
 
@@ -25,6 +26,8 @@ export type SearchQuery = {
   types: PropertyType[];
   /** Location ids. Unknown ids simply match nothing. */
   locations: string[];
+  /** Sub-location ids ("new-cairo--fifth-settlement", URL param `area`), narrowing their location. */
+  areas: string[];
   compound: string;
   beds: number;
   baths: number;
@@ -42,6 +45,7 @@ const list = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const num = (v: string | string[] | undefined) => Math.max(0, Number(one(v)) || 0);
 const LOCATION_ID = /^[a-z0-9-]{1,60}$/;
+const SUB_LOCATION_ID = /^[a-z0-9-]{1,60}--[a-z0-9-]{1,60}$/;
 
 export function parseSearch(params: Params): SearchQuery {
   // The search bar posts a single "tab" (primary | resale | rent); links use purpose/listing directly.
@@ -53,6 +57,7 @@ export function parseSearch(params: Params): SearchQuery {
     listing: rent ? undefined : (toListingType(tab) ?? toListingType(one(params.listing))),
     types: PROPERTY_TYPES.filter((v) => list(params.type).includes(v)),
     locations: [...new Set(list(params.location).filter((v) => LOCATION_ID.test(v)))].slice(0, 20),
+    areas: [...new Set(list(params.area).filter((v) => SUB_LOCATION_ID.test(v)))].slice(0, 40),
     compound: one(params.compound).trim().slice(0, 80),
     beds: num(params.beds),
     baths: num(params.baths),
@@ -73,7 +78,7 @@ export function searchTab(q: Partial<Pick<SearchQuery, "purpose" | "listing">>):
 
 export function isFiltered(s: SearchQuery) {
   return Boolean(
-    s.q || s.listing || s.types.length || s.locations.length || s.compound || s.beds || s.baths ||
+    s.q || s.listing || s.types.length || s.locations.length || s.areas.length || s.compound || s.beds || s.baths ||
       s.minPrice || s.maxPrice || s.minArea || s.maxArea || s.features.length,
   );
 }
@@ -87,6 +92,7 @@ export function searchHref(s: SearchQuery, overrides: Partial<SearchQuery> = {})
   if (m.listing) p.set("listing", m.listing);
   m.types.forEach((v) => p.append("type", v));
   m.locations.forEach((v) => p.append("location", v));
+  m.areas.forEach((v) => p.append("area", v));
   if (m.compound) p.set("compound", m.compound);
   if (m.beds) p.set("beds", String(m.beds));
   if (m.baths) p.set("baths", String(m.baths));
@@ -107,6 +113,18 @@ export function sortHrefs(s: SearchQuery): Record<Sort, string> {
 }
 
 /**
+ * Whether a property is in the searched places (docs/sub-locations.md). A ticked location matches
+ * all of it, unless sub-locations of that location are ticked too: then only those. A ticked
+ * sub-location matches on its own, even without its location.
+ */
+export function inPlaces(p: Pick<Property, "location" | "subLocation">, s: Pick<SearchQuery, "locations" | "areas">) {
+  if (!s.locations.length && !s.areas.length) return true;
+  // `??`: properties cached before sub-locations existed (docs/caching.md).
+  if (p.subLocation && s.areas.includes(p.subLocation)) return true;
+  return s.locations.includes(p.location) && !s.areas.some((a) => subLocationParent(a) === p.location);
+}
+
+/**
  * Filters and sorts published properties. Rentals whose price changes by date are filtered and
  * sorted by their "From" price, the lowest from `today` on (docs/rental-pricing.md). A Primary
  * listing given as ranges matches when any of its units could: its range overlaps the filter
@@ -119,11 +137,11 @@ export function applySearch(properties: Property[], s: SearchQuery, today: Day =
   const topPrice = (p: Property) => p.priceMax ?? price(p);
   const out = properties.filter(
     (p) =>
-      (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.description, p.developerDescription].join(" ").toLowerCase().includes(q)) &&
+      (!q || [p.title, p.compound, p.code, p.locationName.en, p.locationName.ar, p.subLocationName?.en, p.subLocationName?.ar, p.subLocationCustom, p.description, p.developerDescription].join(" ").toLowerCase().includes(q)) &&
       p.purpose === s.purpose &&
       (!s.listing || p.listingType === s.listing) &&
       (!s.types.length || s.types.includes(p.type)) &&
-      (!s.locations.length || s.locations.includes(p.location)) &&
+      inPlaces(p, s) &&
       (!s.compound || p.compound === s.compound) &&
       (!s.beds || upper(p, "bedrooms") >= s.beds) &&
       (!s.baths || upper(p, "bathrooms") >= s.baths) &&
@@ -140,6 +158,13 @@ export function applySearch(properties: Property[], s: SearchQuery, today: Day =
     area_desc: (a, b) => upper(b, "area") - upper(a, "area"),
   };
   return out.sort(by[s.sort]);
+}
+
+/** Listings per sub-location id, for the counts next to the filter options. */
+export function subLocationCounts(properties: Pick<Property, "subLocation">[]) {
+  const counts: Record<string, number> = {};
+  for (const p of properties) if (p.subLocation) counts[p.subLocation] = (counts[p.subLocation] ?? 0) + 1;
+  return counts;
 }
 
 export function paginate<T>(items: T[], page: number, perPage = PER_PAGE) {
@@ -254,13 +279,16 @@ export function similarTo(property: Property, published: Property[], limit = 3) 
 }
 
 /**
- * Where a property's location details link to: the search for its location, and its project page
+ * Where a property's location details link to: the search for its location (and sub-location), and its project page
  * when it is in a compound (`project` is null otherwise, so the page can hide that row).
  */
-export function placeLinks(property: Pick<Property, "purpose" | "location" | "compound">) {
+export function placeLinks(property: Pick<Property, "purpose" | "location" | "subLocation" | "compound">) {
   const compound = property.compound.trim();
+  const search = parseSearch({});
   return {
-    location: searchHref(parseSearch({}), { purpose: property.purpose, locations: [property.location] }),
+    location: searchHref(search, { purpose: property.purpose, locations: [property.location] }),
+    /** Typed sub-locations aren't searchable, so they have no link. */
+    subLocation: property.subLocation ? searchHref(search, { purpose: property.purpose, locations: [property.location], areas: [property.subLocation] }) : null,
     project: compound ? `/projects/${projectSlug(compound)}` : null,
   };
 }

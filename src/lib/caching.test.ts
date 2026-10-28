@@ -37,7 +37,7 @@ describe("cached reads (store.ts)", () => {
       tags: [CACHE_TAGS.properties, CACHE_TAGS.locations],
       revalidate: PUBLIC_DATA_TTL,
     });
-    expect(next.cached.get("locations")).toEqual({ tags: [CACHE_TAGS.locations], revalidate: PUBLIC_DATA_TTL });
+    expect(next.cached.get("locations-with-sub-locations")).toEqual({ tags: [CACHE_TAGS.locations], revalidate: PUBLIC_DATA_TTL });
   });
 
   it("looks up a property by code in the cached list, with no query of its own", async () => {

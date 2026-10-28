@@ -7,7 +7,7 @@ import { NumberField } from "@/components/number-field";
 import { SpecialPrices } from "@/components/special-prices";
 import type { Day } from "@/lib/availability";
 import { hasDeveloperDescription } from "@/lib/descriptions";
-import { locationLabel } from "@/lib/locations";
+import { locationLabel, SUB_LOCATION_OTHER, MAX_SUB_LOCATION_NAME } from "@/lib/locations";
 import { CODE_PATTERN, MAX_CODE_LENGTH } from "@/lib/property-codes";
 import { MAX_KEYS, type RangeKey } from "@/lib/unit-ranges";
 import { PROPERTY_LIMITS, TEXT_LIMITS, type NumberLimits } from "@/lib/validation";
@@ -27,7 +27,7 @@ import {
 // admin = true unlocks the rent purpose, the "Skyline (company)" seller, primary/resale and
 // "show on home page". On /submit the seller picks primary/resale above these fields (PropertyForm)
 // and passes it in as listingType.
-// locations: the choices for the location field (see selectableLocations).
+// locations: the choices for the location field, each with its sub-locations (see selectableLocations).
 // today: today in Cairo, for the rental special-price calendar (admin forms only).
 // onPurposeChange: told when the admin switches between sale and rent (the photo limit follows it).
 export function PropertyFields({
@@ -55,6 +55,7 @@ export function PropertyFields({
   // Primary listings get "About the project" and "About the developer" (docs/developer-description.md).
   const primary = hasDeveloperDescription({ purpose, listingType: (admin ? adminListingType : listingType) ?? "resale" });
   const [sellerType, setSellerType] = useState(d?.seller.type ?? (admin ? "company" : "broker"));
+  const [location, setLocation] = useState(d?.location ?? locations[0]?.id ?? "");
   // Rental prices as typed, so the special-price calendar shows each night's price live (docs/rental-pricing.md).
   const [standardPrice, setStandardPrice] = useState(d?.price ?? 0);
   const [weekendPrice, setWeekendPrice] = useState<number | null>(d?.weekendPrice ?? null);
@@ -164,7 +165,7 @@ export function PropertyFields({
           <label className="label" htmlFor="location">
             {f.location}
           </label>
-          <select id="location" name="location" required defaultValue={d?.location} className="field">
+          <select id="location" name="location" required value={location} onChange={(e) => setLocation(e.target.value)} className="field">
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {locationLabel(t, l)} {l.archived && t.admin.locations.hiddenTag}
@@ -172,6 +173,13 @@ export function PropertyFields({
             ))}
           </select>
         </div>
+        {/* Keyed by location: picking another location starts its sub-location afresh, except on the
+            listing's own location, which shows what it has. */}
+        <SubLocationField
+          key={location}
+          place={locations.find((l) => l.id === location)}
+          defaults={d && d.location === location ? d : undefined}
+        />
         <div className="sm:col-span-2">
           <label className="label" htmlFor="compound">
             {f.compound} <span className="font-normal text-cocoa">{t.optional}</span>
@@ -374,6 +382,51 @@ function RangeField({
           />
         </fieldset>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The optional sub-location (docs/sub-locations.md): the location's list plus "Other (type it)", or
+ * just a text box when the location has no list. The typed text is only sent while it is shown.
+ */
+function SubLocationField({ place, defaults }: { place?: Location; defaults?: Pick<Property, "subLocation" | "subLocationCustom"> }) {
+  const t = useDict();
+  const f = t.fields;
+  const subs = place?.subLocations ?? [];
+  // `??`: a property edited from a cached copy made before sub-locations existed has neither field.
+  const [picked, setPicked] = useState(defaults?.subLocation ?? (defaults?.subLocationCustom ? SUB_LOCATION_OTHER : ""));
+  const typing = !subs.length || picked === SUB_LOCATION_OTHER;
+  return (
+    <div className="sm:col-span-2">
+      <label className="label" htmlFor={subs.length ? "subLocation" : "subLocationCustom"}>
+        {f.subLocation} <span className="font-normal text-cocoa">{t.optional}</span>
+      </label>
+      <div className={`grid gap-2 ${subs.length && typing ? "sm:grid-cols-2" : ""}`}>
+        {subs.length > 0 && (
+          <select id="subLocation" name="subLocation" value={picked} onChange={(e) => setPicked(e.target.value)} className="field">
+            <option value="">{f.subLocationNone}</option>
+            {subs.map((s) => (
+              <option key={s.id} value={s.id}>
+                {locationLabel(t, s)} {s.archived && t.admin.locations.hiddenTag}
+              </option>
+            ))}
+            <option value={SUB_LOCATION_OTHER}>{f.subLocationOther}</option>
+          </select>
+        )}
+        {typing && (
+          <input
+            id="subLocationCustom"
+            name="subLocationCustom"
+            maxLength={MAX_SUB_LOCATION_NAME}
+            defaultValue={defaults?.subLocationCustom ?? ""}
+            placeholder={f.subLocationPlaceholder}
+            aria-label={subs.length ? f.subLocationOther : undefined}
+            className="field"
+          />
+        )}
+      </div>
+      {subs.length > 0 && typing && <p className="mt-1 text-xs text-cocoa">{f.subLocationTypeHint}</p>}
     </div>
   );
 }

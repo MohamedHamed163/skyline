@@ -13,10 +13,10 @@ const SELLERS: Record<string, Seller> = {
 };
 
 // Location names live in the locations table, so seed rows only carry the location id.
-type SeedProperty = Omit<Property, "locationName">;
+type SeedProperty = Omit<Property, "locationName" | "subLocationName">;
 type SeedInput = Omit<
   SeedProperty,
-  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules" | "hostId" | "pendingEdit" | "editOutcome" | keyof UnitRanges
+  "previousStatus" | "adminNotes" | "createdAt" | "updatedAt" | "purpose" | "featured" | "floor" | "documents" | "bookedDates" | "developerDescription" | "weekendPrice" | "priceRules" | "hostId" | "pendingEdit" | "editOutcome" | "subLocation" | "subLocationCustom" | keyof UnitRanges
 > & Partial<UnitRanges> & {
   age: number;
   featured?: boolean;
@@ -35,6 +35,9 @@ const property = ({ age, featured = false, floor, developerDescription = "", ...
   featured,
   floor: floor ?? null,
   developerDescription,
+  // Sample listings have no sub-location (docs/sub-locations.md).
+  subLocation: null,
+  subLocationCustom: "",
   documents: [],
   bookedDates: [],
   weekendPrice: null,

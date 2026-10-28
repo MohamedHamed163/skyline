@@ -5,9 +5,10 @@ import { CACHE_TAGS, PUBLIC_DATA_TTL } from "./cache-tags";
 import { sql } from "./db";
 import { HOST_EDITABLE } from "./host-accounts";
 import { holdsEdits, type EditOutcome, type HostEdit, type PendingEdit } from "./listing-edits";
+import { selectableLocations } from "./locations";
 import { isCodeConflict } from "./property-codes";
 import type { UnitRanges } from "./unit-ranges";
-import { toListingType, type Host, type HostSummary, type Lead, type LeadStatus, type Location, type PasswordRequest, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
+import { toListingType, type Host, type HostSummary, type Lead, type LeadStatus, type Location, type PasswordRequest, type SubLocation, type PriceRule, type Property, type PropertyDocument, type PropertyStatus } from "./types";
 
 // Data layer backed by Postgres (schema in schema.sql).
 
@@ -28,6 +29,10 @@ const toProperty = (r: Row): Property => ({
   location: r.location as string,
   // Joined from locations (see PROPERTY_SELECT); falls back to the id if the row is missing.
   locationName: { en: (r.location_en as string) ?? (r.location as string), ar: (r.location_ar as string) ?? (r.location as string) },
+  subLocation: (r.sub_location as string | null | undefined) ?? null,
+  // Joined from sub_locations like the location names.
+  subLocationName: r.sub_location_en ? { en: r.sub_location_en as string, ar: r.sub_location_ar as string } : null,
+  subLocationCustom: (r.sub_location_custom as string | undefined) ?? "",
   compound: r.compound as string,
   area: r.area as number,
   bedrooms: r.bedrooms as number,
@@ -84,21 +89,32 @@ const toLead = (r: Row): Lead => ({
   updatedAt: iso(r.updated_at),
 });
 
-const toLocation = (r: Row): Location => ({
+const toLocation = (r: Row, subLocations: SubLocation[]): Location => ({
   id: r.id as string,
   nameEn: r.name_en as string,
   nameAr: r.name_ar as string,
   cover: r.cover as string | null,
   archived: r.archived as boolean,
   createdAt: iso(r.created_at),
+  subLocations: subLocations.filter((s) => s.locationId === r.id),
+});
+
+const toSubLocation = (r: Row): SubLocation => ({
+  id: r.id as string,
+  locationId: r.location_id as string,
+  nameEn: r.name_en as string,
+  nameAr: r.name_ar as string,
+  sortOrder: r.sort_order as number,
+  archived: r.archived as boolean,
 });
 
 // ---- Properties ----
 
-// Every property read joins its location names, so pages can label it without loading all locations.
+// Every property read joins its location and sub-location names, so pages can label it without
+// loading all locations.
 const PROPERTY_SELECT = () => sql()`
-  SELECT p.*, l.name_en AS location_en, l.name_ar AS location_ar
-  FROM properties p LEFT JOIN locations l ON l.id = p.location`;
+  SELECT p.*, l.name_en AS location_en, l.name_ar AS location_ar, s.name_en AS sub_location_en, s.name_ar AS sub_location_ar
+  FROM properties p LEFT JOIN locations l ON l.id = p.location LEFT JOIN sub_locations s ON s.id = p.sub_location`;
 
 // cache(): the admin layout and page both need these lists; query once per request.
 export const getProperties = cache(async () =>
@@ -131,7 +147,7 @@ export async function getProperty(id: string) {
 
 export type PropertyInput = Omit<
   Property,
-  "id" | "code" | "locationName" | "hostId" | "pendingEdit" | "editOutcome" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "bookedDates" | "createdAt" | "updatedAt"
+  "id" | "code" | "locationName" | "subLocationName" | "hostId" | "pendingEdit" | "editOutcome" | "status" | "previousStatus" | "adminNotes" | "photos" | "documents" | "bookedDates" | "createdAt" | "updatedAt"
 >;
 
 // The "to" values of a Primary listing's unit ranges (docs/unit-ranges.md). A host edit held from
@@ -154,6 +170,8 @@ const propertyColumns = (p: PropertyInput) => ({
   rent_period: p.purpose === "rent" ? "night" : null,
   type: p.type,
   location: p.location,
+  sub_location: p.subLocation,
+  sub_location_custom: p.subLocationCustom,
   compound: p.compound,
   area: p.area,
   bedrooms: p.bedrooms,
@@ -213,6 +231,9 @@ const hostEditColumns = (e: HostEdit) => ({
   listing_type: e.listingType,
   type: e.type,
   location: e.location,
+  // An edit held from before sub-locations existed has neither key: it clears them, as its location may differ.
+  sub_location: e.subLocation ?? null,
+  sub_location_custom: e.subLocationCustom ?? "",
   compound: e.compound,
   area: e.area,
   bedrooms: e.bedrooms,
@@ -330,16 +351,28 @@ export async function setBookedDates(id: string, days: string[]) {
 
 // ---- Locations ----
 
-/** All locations, hidden ones included, alphabetical by English name. Cached across requests. */
+/**
+ * All locations, hidden ones included, alphabetical by English name, each with its sub-locations in
+ * display order. Cached across requests; sub-location changes clear the same tag.
+ */
 export const getLocations = cache(
-  unstable_cache(async () => (await sql()`SELECT * FROM locations ORDER BY name_en`).map(toLocation), ["locations"], {
-    tags: [CACHE_TAGS.locations],
-    revalidate: PUBLIC_DATA_TTL,
-  }),
+  unstable_cache(
+    async () => {
+      const [locations, subs] = await Promise.all([
+        sql()`SELECT * FROM locations ORDER BY name_en`,
+        sql()`SELECT * FROM sub_locations ORDER BY sort_order, name_en`,
+      ]);
+      const subLocations = subs.map(toSubLocation);
+      return locations.map((r) => toLocation(r, subLocations));
+    },
+    ["locations-with-sub-locations"],
+    { tags: [CACHE_TAGS.locations], revalidate: PUBLIC_DATA_TTL },
+  ),
 );
 
+/** Visible locations with their visible sub-locations. */
 export async function getActiveLocations() {
-  return (await getLocations()).filter((l) => !l.archived);
+  return selectableLocations(await getLocations());
 }
 
 export async function createLocation(input: Pick<Location, "id" | "nameEn" | "nameAr" | "cover">) {
@@ -355,6 +388,44 @@ export async function updateLocation(id: string, patch: { nameEn: string; nameAr
 /** Locations are never deleted (properties reference them); hiding is reversible. */
 export async function setLocationArchived(id: string, archived: boolean) {
   await sql()`UPDATE locations SET archived = ${archived} WHERE id = ${id}`;
+}
+
+// ---- Sub-locations (docs/sub-locations.md) ----
+
+/**
+ * Adds a sub-location. Two admins adding the same one at once compute the same id: the second insert
+ * does nothing and both end up with the existing row. Returns the id either way.
+ */
+export async function createSubLocation(input: Omit<SubLocation, "archived"> & { slug: string }) {
+  await sql()`
+    INSERT INTO sub_locations ${sql()({ id: input.id, location_id: input.locationId, slug: input.slug, name_en: input.nameEn, name_ar: input.nameAr, sort_order: input.sortOrder })}
+    ON CONFLICT (id) DO NOTHING`;
+  return input.id;
+}
+
+/** The id and location never change, so properties and search links keep working. */
+export async function updateSubLocation(id: string, patch: Pick<SubLocation, "nameEn" | "nameAr" | "sortOrder">) {
+  await sql()`UPDATE sub_locations SET ${sql()({ name_en: patch.nameEn, name_ar: patch.nameAr, sort_order: patch.sortOrder })} WHERE id = ${id}`;
+}
+
+/** Never deleted (properties reference them); hiding is reversible. */
+export async function setSubLocationArchived(id: string, archived: boolean) {
+  await sql()`UPDATE sub_locations SET archived = ${archived} WHERE id = ${id}`;
+}
+
+/**
+ * Moves every property in `locationId` whose typed sub-location has this `typedKey` onto the listed
+ * sub-location. Returns how many changed. Waiting host edits keep their text; it is matched again
+ * when they are saved or approved.
+ */
+export async function linkTypedSubLocation(locationId: string, typed: string, subLocationId: string) {
+  // "\\s+" in the template literal reaches Postgres as \s+ (a lone "\s" would arrive as plain "s").
+  const rows = await sql()`
+    UPDATE properties SET sub_location = ${subLocationId}, sub_location_custom = ''
+    WHERE location = ${locationId} AND sub_location_custom <> ''
+      AND lower(regexp_replace(btrim(sub_location_custom), '\\s+', ' ', 'g')) = ${typed}
+    RETURNING id`;
+  return rows.length;
 }
 
 // ---- Leads ----

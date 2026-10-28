@@ -7,7 +7,7 @@ import { awaitsApproval } from "@/lib/approvals";
 import { formatDay } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
 import { sellerName } from "@/lib/sellers";
-import { locationLabel, localName } from "@/lib/locations";
+import { locationLabel, localName, subLocationLabel } from "@/lib/locations";
 import { getLocations, getProperties } from "@/lib/store";
 import { LISTING_TYPES, PROPERTY_STATUSES, PROPERTY_TYPES, PURPOSES, SELLER_TYPES, toListingType } from "@/lib/types";
 
@@ -183,7 +183,11 @@ export default async function AdminPropertiesPage({ searchParams }: PageProps<"/
                   <td className="whitespace-nowrap px-3 py-3">{t.type[p.type]}</td>
                   <td className="whitespace-nowrap px-3 py-3">{p.purpose === "rent" ? t.purposeBadge.rent : t.listing[p.listingType]}</td>
                   <td className="whitespace-nowrap px-3 py-3">{p.compound || t.none}</td>
-                  <td className="whitespace-nowrap px-3 py-3">{localName(t, p.locationName)}</td>
+                  <td className="whitespace-nowrap px-3 py-3">
+                    {localName(t, p.locationName)}
+                    {/* The sub-location under it; typed ones (not in the list yet) in italics (docs/sub-locations.md). */}
+                    {subLocationLabel(t, p) && <span className={`block text-xs text-cocoa ${p.subLocation ? "" : "italic"}`}>{subLocationLabel(t, p)}</span>}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-3 font-semibold">{priceText(t, p)}</td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {sellerName(t, p.seller)}

@@ -27,7 +27,19 @@ import {
 import { currentHost, endHostSession, hostSessionsEnabled, startHostSession } from "./host-auth";
 import { fmt, getDict, isLocale, LOCALE_COOKIE } from "./i18n";
 import { checkAdminPassword, checkPasswordRequest } from "./password-help";
-import { MAX_LOCATION_NAME, slugify, uniqueSlug, validateLocation } from "./locations";
+import {
+  cleanTyped,
+  MAX_LOCATION_NAME,
+  MAX_SUB_LOCATION_NAME,
+  readSubLocation,
+  slugify,
+  SUB_LOCATION_OTHER,
+  subLocationId,
+  typedKey,
+  uniqueSlug,
+  validateLocation,
+  validateSubLocation,
+} from "./locations";
 import { holdsEdits, pickHostEdit } from "./listing-edits";
 import { DUMMY_HASH, generateTemporaryPassword, hashPassword, verifyPassword } from "./passwords";
 import { MAX_PHOTOS, maxPhotos } from "./photo-limits";
@@ -92,10 +104,14 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       return { error: fmt(t.textTooLong, { field, max: groupDigits(String(TEXT_LIMITS[key])) }) };
     }
   }
+  // The sub-location is optional: picked from the location's list or typed (docs/sub-locations.md).
+  const subLocation = place ? readSubLocation(place, text(fd, "subLocation"), text(fd, "subLocationCustom", MAX_SUB_LOCATION_NAME)) : null;
+  if (place && !subLocation) return { error: t.subLocationChoice };
   if (
     !listingType ||
     !PROPERTY_TYPES.includes(type) ||
     !validLocation ||
+    !subLocation ||
     !SELLER_TYPES.includes(sellerType) ||
     (!admin && sellerType === "company") ||
     !PURPOSES.includes(purpose)
@@ -160,6 +176,7 @@ async function parseProperty(fd: FormData, admin = false): Promise<{ error: stri
       purpose,
       type,
       location,
+      ...subLocation,
       compound: text(fd, "compound", 80),
       ...numbers,
       weekendPrice: weekendPrice ? Number(weekendPrice) : null,
@@ -460,7 +477,11 @@ export async function approveHostEdit(id: string, submittedAt: string) {
   await requireAdmin();
   const edit = (await store.getProperty(id))?.pendingEdit;
   if (!edit || edit.submittedAt !== submittedAt) return;
-  await store.approveHostEdit(id, edit, { result: "approved", note: "", at: new Date().toISOString() });
+  // Typed text the admin has since added to the list (or matched) becomes that sub-location.
+  const place = (await store.getLocations()).find((l) => l.id === edit.values.location);
+  const sub = place && readSubLocation(place, edit.values.subLocation ?? SUB_LOCATION_OTHER, edit.values.subLocationCustom ?? "");
+  const values = { ...edit.values, ...(sub ?? { subLocation: null, subLocationCustom: "" }) };
+  await store.approveHostEdit(id, { ...edit, values }, { result: "approved", note: "", at: new Date().toISOString() });
   updateTag(CACHE_TAGS.properties);
   revalidatePath("/", "layout");
 }
@@ -688,6 +709,100 @@ export async function setLocationArchived(id: string, archived: boolean) {
   await store.setLocationArchived(id, archived);
   updateTag(CACHE_TAGS.locations);
   revalidatePath("/", "layout");
+}
+
+// ---- Admin: sub-locations (docs/sub-locations.md) ----
+
+function parseSubLocationForm(fd: FormData) {
+  const order = Math.trunc(Number(text(fd, "sortOrder", 10)));
+  return {
+    nameEn: text(fd, "nameEn", MAX_SUB_LOCATION_NAME),
+    nameAr: text(fd, "nameAr", MAX_SUB_LOCATION_NAME),
+    sortOrder: Number.isFinite(order) ? Math.min(Math.max(order, 0), 100_000) : 0,
+  };
+}
+
+async function subLocationError(input: { nameEn: string; nameAr: string }, locationId: string, exceptId?: string) {
+  const t = (await getDict()).msg;
+  const place = (await store.getLocations()).find((l) => l.id === locationId);
+  if (!place) return t.subLocationSaveFailed;
+  const error = validateSubLocation(input, place.subLocations, exceptId);
+  if (error === "missing") return t.locationMissing;
+  if (error === "duplicate") return t.subLocationDuplicate;
+  return null;
+}
+
+/** Done after every sub-location change: forms, filters and property labels all read them. */
+function subLocationsChanged() {
+  updateTag(CACHE_TAGS.locations);
+  updateTag(CACHE_TAGS.properties);
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Adds a sub-location to `locationId`. With a `typed` value (from the typed sub-locations panel) the
+ * properties that typed it are moved onto the new one.
+ */
+export async function createSubLocation(locationId: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
+  const t = (await getDict()).msg;
+  const input = parseSubLocationForm(fd);
+  const error = await subLocationError(input, locationId);
+  if (error) return { ok: false, message: error };
+  const typed = typedKey(text(fd, "typed", MAX_SUB_LOCATION_NAME));
+  try {
+    const place = (await store.getLocations()).find((l) => l.id === locationId)!;
+    const slug = uniqueSlug(slugify(input.nameEn), place.subLocations.map((s) => s.id.slice(locationId.length + 2)));
+    const id = await store.createSubLocation({ id: subLocationId(locationId, slug), locationId, slug, ...input });
+    if (typed) await store.linkTypedSubLocation(locationId, typed, id);
+  } catch (err) {
+    console.error("Sub-location creation failed", err);
+    return { ok: false, message: t.subLocationSaveFailed };
+  }
+  subLocationsChanged();
+  return { ok: true, message: t.subLocationAdded };
+}
+
+export async function updateSubLocation(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
+  const t = (await getDict()).msg;
+  const input = parseSubLocationForm(fd);
+  const sub = (await store.getLocations()).flatMap((l) => l.subLocations).find((s) => s.id === id);
+  if (!sub) return { ok: false, message: t.subLocationSaveFailed };
+  const error = await subLocationError(input, sub.locationId, id);
+  if (error) return { ok: false, message: error };
+  try {
+    await store.updateSubLocation(id, input);
+  } catch (err) {
+    console.error("Sub-location update failed", err);
+    return { ok: false, message: t.subLocationSaveFailed };
+  }
+  subLocationsChanged();
+  return { ok: true, message: t.saved };
+}
+
+/** Hide or restore a sub-location. Its properties keep it. */
+export async function setSubLocationArchived(id: string, archived: boolean) {
+  await requireAdmin();
+  await store.setSubLocationArchived(id, archived);
+  subLocationsChanged();
+}
+
+/** "Match to existing": properties in `locationId` that typed `typed` move onto the picked sub-location. */
+export async function matchTypedSubLocation(locationId: string, typed: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
+  const t = (await getDict()).msg;
+  const target = text(fd, "subLocation");
+  const place = (await store.getLocations()).find((l) => l.id === locationId);
+  if (!place?.subLocations.some((s) => s.id === target) || !cleanTyped(typed)) return { ok: false, message: t.subLocationChoice };
+  try {
+    await store.linkTypedSubLocation(locationId, typedKey(typed), target);
+  } catch (err) {
+    console.error("Sub-location match failed", err);
+    return { ok: false, message: t.subLocationSaveFailed };
+  }
+  subLocationsChanged();
+  return { ok: true, message: t.saved };
 }
 
 // ---- Language ----

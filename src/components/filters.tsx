@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CloseIcon } from "@/components/icons";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { locationLabel } from "@/lib/locations";
+import { locationLabel, subLocationParent } from "@/lib/locations";
 import { searchHref, type SearchQuery } from "@/lib/search";
 import { getActiveLocations, getLocations } from "@/lib/store";
 import { FEATURES, LISTING_TYPES, PROPERTY_TYPES } from "@/lib/types";
@@ -32,7 +32,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // Bayut-style filter sidebar. Plain GET form; collapsible on small screens.
-export async function Filters({ query, compounds }: { query: SearchQuery; compounds: string[] }) {
+// subCounts: listings per sub-location id, shown next to each one (docs/sub-locations.md).
+export async function Filters({ query, compounds, subCounts }: { query: SearchQuery; compounds: string[]; subCounts: Record<string, number> }) {
   const [t, locations] = await Promise.all([getDict(), getActiveLocations()]);
   const f = t.filters;
   const plus = (n: number) => fmt(f.plus, { n });
@@ -55,12 +56,32 @@ export async function Filters({ query, compounds }: { query: SearchQuery; compou
 
         <Section title={f.location}>
           <div className="space-y-1.5">
-            {locations.map((l) => (
-              <label key={l.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                <input type="checkbox" name="location" value={l.id} defaultChecked={query.locations.includes(l.id)} className="h-4 w-4 accent-gold" />
-                {locationLabel(t, l)}
-              </label>
-            ))}
+            {locations.map((l) => {
+              // A location's areas open under it once it is ticked (CSS :has, no JavaScript), and stay
+              // open while one of them is in the search.
+              const open = query.areas.some((a) => subLocationParent(a) === l.id);
+              return (
+                <div key={l.id} className="group/loc">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="checkbox" name="location" value={l.id} defaultChecked={query.locations.includes(l.id)} className="loc-box h-4 w-4 accent-gold" />
+                    {locationLabel(t, l)}
+                  </label>
+                  {l.subLocations.length > 0 && (
+                    <div className={`ms-6 mt-1.5 space-y-1 group-has-[.loc-box:checked]/loc:block ${open ? "block" : "hidden"}`}>
+                      {l.subLocations.map((s) => {
+                        const n = subCounts[s.id] ?? 0;
+                        return (
+                          <label key={s.id} className={`flex cursor-pointer items-center gap-2 text-sm ${n ? "" : "text-cocoa/60"}`}>
+                            <input type="checkbox" name="area" value={s.id} defaultChecked={query.areas.includes(s.id)} className="h-3.5 w-3.5 accent-gold" />
+                            {locationLabel(t, s)} <span className="text-xs text-cocoa">({n})</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Section>
 
@@ -151,7 +172,12 @@ export async function ActiveFilters({ query }: { query: SearchQuery }) {
   if (query.listing) chips.push({ label: t.listing[query.listing], href: searchHref(query, { listing: undefined }) });
   query.locations.forEach((v) => {
     const l = locations.find((x) => x.id === v);
-    if (l) chips.push({ label: locationLabel(t, l), href: searchHref(query, { locations: query.locations.filter((x) => x !== v) }) });
+    // Removing a location also drops its areas, which would otherwise keep matching on their own.
+    if (l) chips.push({ label: locationLabel(t, l), href: searchHref(query, { locations: query.locations.filter((x) => x !== v), areas: query.areas.filter((x) => subLocationParent(x) !== v) }) });
+  });
+  query.areas.forEach((v) => {
+    const s = locations.flatMap((l) => l.subLocations).find((x) => x.id === v);
+    if (s) chips.push({ label: locationLabel(t, s), href: searchHref(query, { areas: query.areas.filter((x) => x !== v) }) });
   });
   query.types.forEach((v) => chips.push({ label: t.type[v], href: searchHref(query, { types: query.types.filter((x) => x !== v) }) }));
   if (query.compound) chips.push({ label: query.compound, href: searchHref(query, { compound: "" }) });

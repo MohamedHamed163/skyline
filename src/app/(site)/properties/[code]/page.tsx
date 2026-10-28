@@ -13,7 +13,7 @@ import { bookingRental } from "@/lib/booking";
 import { descriptionSections } from "@/lib/descriptions";
 import { formatDay, formatPrice, telHref, whatsappHref } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { localName } from "@/lib/locations";
+import { localName, subLocationLabel } from "@/lib/locations";
 import { pricesVary } from "@/lib/pricing";
 import { codeFromParam } from "@/lib/property-codes";
 import { avgPricePerSqm, placeLinks, similarTo } from "@/lib/search";
@@ -37,8 +37,9 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   const similar = similarTo(property, published);
   const links = placeLinks(property);
   const sameCompound = property.compound ? published.filter((x) => x.compound === property.compound && x.id !== property.id && x.purpose === property.purpose) : [];
-  // English name for the map search, whatever the UI language.
-  const place = property.compound ? `${property.compound}, ${property.locationName.en}` : property.locationName.en;
+  // English names for the map search, whatever the UI language.
+  const place = [property.compound, subLocationLabel({ locale: "en" }, property), property.locationName.en].filter(Boolean).join(", ");
+  const subLocation = subLocationLabel(t, property);
   const skylinePhone = process.env.NEXT_PUBLIC_SKYLINE_PHONE;
   const skylineWhatsapp = process.env.NEXT_PUBLIC_SKYLINE_WHATSAPP;
   const today = cairoToday();
@@ -70,6 +71,12 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
         <Link href="/properties" className="hover:text-gold-deep">{t.nav.properties}</Link>
         <span>/</span>
         <Link href={links.location} className="hover:text-gold-deep">{localName(t, property.locationName)}</Link>
+        {links.subLocation && (
+          <>
+            <span>/</span>
+            <Link href={links.subLocation} className="hover:text-gold-deep">{subLocation}</Link>
+          </>
+        )}
         {links.project && (
           <>
             <span>/</span>
@@ -153,6 +160,8 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
           {/* Label above value; values link to the location search and the project page. Compound is optional, so it is hidden when empty. */}
           <dl className="mt-3 flex flex-wrap gap-x-10 gap-y-4 text-sm">
             <PlaceLink icon={<PinIcon />} label={p.location} href={links.location} value={localName(t, property.locationName)} />
+            {/* A typed sub-location isn't searchable, so it shows without a link (docs/sub-locations.md). */}
+            {subLocation && <PlaceLink icon={<PinIcon />} label={p.subLocation} href={links.subLocation} value={subLocation} />}
             {links.project && <PlaceLink icon={<BuildingIcon />} label={p.compound} href={links.project} value={property.compound} />}
           </dl>
           <div className="mt-3 overflow-hidden rounded-2xl border border-line">
@@ -213,17 +222,21 @@ export default async function PropertyPage({ params }: PageProps<"/properties/[c
   );
 }
 
-function PlaceLink({ icon, label, href, value }: { icon: ReactNode; label: string; href: string; value: string }) {
+function PlaceLink({ icon, label, href, value }: { icon: ReactNode; label: string; href: string | null; value: string }) {
   return (
     <div className="flex items-center gap-3">
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold/15 text-gold-deep">{icon}</span>
       <div>
         <dt className="text-xs text-cocoa">{label}</dt>
         <dd>
-          <Link href={href} className="group inline-flex items-center gap-1 font-semibold text-gold-deep hover:underline underline-offset-4">
-            {value}
-            <ChevronIcon className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
-          </Link>
+          {href ? (
+            <Link href={href} className="group inline-flex items-center gap-1 font-semibold text-gold-deep hover:underline underline-offset-4">
+              {value}
+              <ChevronIcon className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
+            </Link>
+          ) : (
+            <span className="font-semibold">{value}</span>
+          )}
         </dd>
       </div>
     </div>

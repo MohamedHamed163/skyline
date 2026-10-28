@@ -11,6 +11,8 @@ export const HOST_EDIT_KEYS = [
   "listingType",
   "type",
   "location",
+  "subLocation",
+  "subLocationCustom",
   "compound",
   "area",
   "bedrooms",
@@ -55,6 +57,7 @@ export const DIFF_FIELDS = [
   "title",
   "type",
   "location",
+  "subLocation",
   "compound",
   "area",
   "areaMax",
@@ -97,6 +100,9 @@ export function fieldValue(p: HostEdit, field: DiffField): FieldValue {
   if (isSellerField(field)) return p.seller[SELLER_PARTS[field]];
   // Features are a set: the order they were ticked in doesn't matter.
   if (field === "features") return [...p.features].sort();
+  // One row for the sub-location: the listed one's id or the typed text (docs/sub-locations.md).
+  // `??`: edits held from before sub-locations existed have neither key.
+  if (field === "subLocation") return p.subLocation ?? (p.subLocationCustom || null);
   return p[field] ?? null;
 }
 

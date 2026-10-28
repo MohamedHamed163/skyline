@@ -6,7 +6,7 @@ import { SearchBar } from "@/components/search-bar";
 import { SortSelect } from "@/components/sort-select";
 import { formatPrice } from "@/lib/format";
 import { fmt, getDict } from "@/lib/i18n";
-import { applySearch, avgPricePerSqm, isFiltered, paginate, parseSearch, searchHref, sortHrefs, SORTS, type Sort } from "@/lib/search";
+import { applySearch, avgPricePerSqm, isFiltered, paginate, parseSearch, searchHref, sortHrefs, SORTS, subLocationCounts, type Sort } from "@/lib/search";
 import { locationLabel } from "@/lib/locations";
 import { getLocations, getPublishedProperties } from "@/lib/store";
 
@@ -33,7 +33,7 @@ export default async function PropertiesPage({ searchParams }: PageProps<"/prope
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[18rem_1fr]">
         <aside>
-          <Filters query={query} compounds={compounds} />
+          <Filters query={query} compounds={compounds} subCounts={subLocationCounts(published.filter((p) => p.purpose === query.purpose))} />
         </aside>
 
         <section className="group/results min-w-0">

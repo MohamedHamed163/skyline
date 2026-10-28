@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AreaIcon, BathIcon, BedIcon, PhotoIcon, PinIcon } from "@/components/icons";
 import { cairoToday } from "@/lib/availability";
 import { fmt, getDict, type Dict } from "@/lib/i18n";
-import { localName } from "@/lib/locations";
+import { placeParts } from "@/lib/locations";
 import { priceLabel, type Pricing } from "@/lib/pricing";
 import type { ListingType, Property } from "@/lib/types";
 import { rangeText } from "@/lib/unit-ranges";
@@ -36,9 +36,9 @@ export function PurposeBadge({ t, p, className = "" }: { t: Dict; p: Pick<Proper
   );
 }
 
-export function placeLabel(t: Dict, p: Pick<Property, "compound" | "locationName">) {
-  const location = localName(t, p.locationName);
-  return p.compound ? `${p.compound}${t.locale === "ar" ? "، " : ", "}${location}` : location;
+/** "Compound, Sub-location, Location" (docs/sub-locations.md). */
+export function placeLabel(t: Dict, p: Pick<Property, "compound" | "locationName" | "subLocationName" | "subLocationCustom">) {
+  return placeParts(t, p).join(t.locale === "ar" ? "، " : ", ");
 }
 
 export function Facts({ t, p, className = "" }: { t: Dict; p: Property; className?: string }) {

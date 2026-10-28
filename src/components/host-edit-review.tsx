@@ -17,6 +17,7 @@ function label(t: Dict, field: DiffField) {
     title: f.title,
     type: f.propertyType,
     location: f.location,
+    subLocation: f.subLocation,
     compound: f.compound,
     area: f.area,
     areaMax: fmt(f.rangeToField, { field: f.area }),
@@ -54,6 +55,11 @@ function Value({ t, field, value, locations }: { t: Dict; field: DiffField; valu
     case "location": {
       const place = locations.find((l) => l.id === value);
       return <>{place ? locationLabel(t, place) : value}</>;
+    }
+    case "subLocation": {
+      // A listed sub-location's id, or text the host typed (docs/sub-locations.md).
+      const sub = locations.flatMap((l) => l.subLocations).find((s) => s.id === value);
+      return <>{sub ? locationLabel(t, sub) : value}</>;
     }
     case "price":
     case "priceMax":

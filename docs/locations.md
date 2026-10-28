@@ -16,6 +16,9 @@ hard-coded. Whatever is listed there drives:
 | **Hide** | The location disappears from the forms, filters and home page. Its properties keep it and still show its name. The confirmation dialog shows how many properties use it. |
 | **Restore** | Brings a hidden location back everywhere. |
 
+Each location can have **sub-locations** (areas such as Fifth Settlement in New Cairo), managed on
+the same page. See [sub-locations.md](sub-locations.md).
+
 Locations are never deleted. Properties reference them through a foreign key, and hiding replaces
 deletion.
 

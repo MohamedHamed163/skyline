@@ -1,4 +1,4 @@
-import type { Host, Location, Property } from "@/lib/types";
+import type { Host, Location, Property, SubLocation } from "@/lib/types";
 
 // Builders for unit tests: sensible defaults, override only what a test cares about.
 
@@ -18,6 +18,17 @@ export const makeLocation = (o: Partial<Location> = {}): Location => ({
   cover: null,
   archived: false,
   createdAt: "2026-01-01T00:00:00.000Z",
+  subLocations: [],
+  ...o,
+});
+
+export const makeSubLocation = (o: Partial<SubLocation> = {}): SubLocation => ({
+  id: "new-cairo--fifth-settlement",
+  locationId: "new-cairo",
+  nameEn: "Fifth Settlement",
+  nameAr: "التجمع الخامس",
+  sortOrder: 10,
+  archived: false,
   ...o,
 });
 
@@ -31,6 +42,9 @@ export const makeProperty = (o: Partial<Property> = {}): Property => ({
   type: "apartment",
   location: "new-cairo",
   locationName: { en: "New Cairo", ar: "القاهرة الجديدة" },
+  subLocation: null,
+  subLocationName: null,
+  subLocationCustom: "",
   compound: "",
   area: 100,
   bedrooms: 2,

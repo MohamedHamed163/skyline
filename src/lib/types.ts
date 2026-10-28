@@ -36,6 +36,23 @@ export type Location = {
   /** Hidden locations are kept for existing properties but can't be picked for new ones or searched. */
   archived: boolean;
   createdAt: string;
+  /** Its areas (docs/sub-locations.md), hidden ones included, in display order. Empty for most regions. */
+  subLocations: SubLocation[];
+};
+
+/**
+ * An area inside a location (New Cairo → Fifth Settlement), managed on /admin/locations. `id` is
+ * "<location id>--<slug>", so it is unique across locations and never changes.
+ */
+export type SubLocation = {
+  id: string;
+  locationId: string;
+  nameEn: string;
+  nameAr: string;
+  /** Lower comes first; ties are alphabetical by English name. */
+  sortOrder: number;
+  /** Hidden: kept on its properties but not offered in the forms or filters. */
+  archived: boolean;
 };
 
 /** A location's display names, joined onto each property so pages don't need the location list. */
@@ -121,6 +138,12 @@ export type Property = {
   /** Location id (slug). */
   location: string;
   locationName: LocationName;
+  /** Sub-location id picked from the list, or null (docs/sub-locations.md). */
+  subLocation: string | null;
+  /** Its names, joined like locationName; null without one. */
+  subLocationName: LocationName | null;
+  /** A sub-location typed by the host or admin because it isn't in the list; "" otherwise. Never set with subLocation. */
+  subLocationCustom: string;
   compound: string;
   area: number;
   bedrooms: number;

@@ -37,7 +37,7 @@ export default async function HostEditPage({ params }: PageProps<"/account/listi
         <div className="card p-6 sm:p-10">
           <HostEditForm
             property={withPendingEdit(property)}
-            locations={selectableLocations(locations, withPendingEdit(property).location)}
+            locations={selectableLocations(locations, withPendingEdit(property).location, withPendingEdit(property).subLocation)}
             version={property.pendingEdit?.submittedAt ?? property.updatedAt}
           />
         </div>
